@@ -1,0 +1,244 @@
+import { expect, test, type Locator, type Page } from '@playwright/test';
+import { sampleCollections } from '../data/sampleCollections';
+
+function board(page: Page) {
+  return page.getByRole('region', { name: 'Collections' });
+}
+
+function collection(page: Page, title: string) {
+  return board(page).getByRole('article', { name: title });
+}
+
+async function bounds(element: Locator) {
+  const box = await element.boundingBox();
+  if (!box) throw new Error('Expected a visible element');
+
+  return box;
+}
+
+async function drag(page: Page, handle: Locator, dx: number, dy: number) {
+  await handle.scrollIntoViewIfNeeded();
+  const box = await bounds(handle);
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + dx, y + dy, { steps: 5 });
+  await page.mouse.up();
+}
+
+async function selectFirst(page: Page) {
+  const first = collection(page, 'Along Superior');
+
+  await page.getByRole('button', { name: 'Edit collections' }).click();
+  await first.getByRole('button', { name: 'Select Along Superior' }).click();
+
+  return first;
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 850 });
+  await page.goto('/');
+});
+
+test('should position a collection using its layout', async ({ page }) => {
+  const config = sampleCollections.find(({ id }) => id === 'freight-country');
+  if (!config) throw new Error('Missing Freight Country sample collection');
+
+  const frame = await bounds(board(page));
+  const item = await bounds(collection(page, config.title));
+
+  expect((item.x - frame.x) / frame.width).toBeCloseTo(config.x, 3);
+  expect((item.y - frame.y) / frame.width).toBeCloseTo(config.y, 3);
+  expect(item.width / frame.width).toBeCloseTo(config.width, 3);
+});
+
+test('can move a selected collection', async ({ page }) => {
+  const first = await selectFirst(page);
+  const start = await bounds(first);
+  const neighbor = await bounds(collection(page, 'Freight Country'));
+  const x = neighbor.x - start.width / 2;
+  const y = neighbor.y;
+
+  await drag(
+    page,
+    first.getByRole('button', { name: 'Select Along Superior' }),
+    x - start.x,
+    y - start.y,
+  );
+
+  const moved = await bounds(first);
+  expect(moved.x).toBeCloseTo(x, 0);
+  expect(moved.y).toBeCloseTo(y, 0);
+});
+
+test('can resize a selected collection', async ({ page }) => {
+  const first = await selectFirst(page);
+  const photo = first.locator('img');
+  const start = await bounds(photo);
+
+  await drag(page, first.locator('.resize-notch'), 60, 0);
+
+  const resized = await bounds(photo);
+  expect(resized.width - start.width).toBeCloseTo(60, 0);
+  expect(resized.width / resized.height).toBeCloseTo(
+    start.width / start.height,
+  );
+});
+
+test('can select a collection with the keyboard', async ({ page }) => {
+  const edit = page.getByRole('button', { name: 'Edit collections' });
+  const first = collection(page, 'Along Superior');
+  await edit.focus();
+
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(
+    first.getByRole('button', { name: 'Select Along Superior' }),
+  ).toBeFocused();
+  await page.keyboard.press('Enter');
+
+  await expect(
+    first.getByRole('button', { name: 'Delete collection' }),
+  ).toBeVisible();
+});
+
+test('can nudge the selected collection with arrow keys', async ({ page }) => {
+  const first = await selectFirst(page);
+  const start = await bounds(first);
+
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowDown');
+
+  const moved = await bounds(first);
+  expect(moved.x).toBeGreaterThan(start.x);
+  expect(moved.y).toBeGreaterThan(start.y);
+  expect(moved.width).toBeCloseTo(start.width);
+});
+
+test('should leave arrow keys available when editing text', async ({
+  page,
+}) => {
+  const first = await selectFirst(page);
+  const start = await bounds(first);
+  const startFrame = await bounds(board(page));
+  await first
+    .getByRole('button', { name: 'Along Superior', exact: true })
+    .click();
+  const title = first.getByRole('textbox', { name: 'Collection title' });
+  await title.press('End');
+
+  await title.press('ArrowLeft');
+  await page.keyboard.insertText('!');
+
+  await expect(title).toHaveValue('Along Superio!r');
+  const position = await bounds(first);
+  const frame = await bounds(board(page));
+  expect(position.x - frame.x).toBeCloseTo(start.x - startFrame.x);
+  expect(position.y - frame.y).toBeCloseTo(start.y - startFrame.y);
+});
+
+test('should scroll to and select the new collection', async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 650 });
+  await page.getByRole('button', { name: 'Edit collections' }).click();
+
+  await page.getByRole('button', { name: 'Add collection' }).click();
+
+  const added = collection(page, 'Untitled collection');
+  await expect(added).toBeInViewport({ ratio: 0.9 });
+  await expect(
+    added.getByRole('button', { name: 'Delete collection' }),
+  ).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => window.scrollY))
+    .toBeGreaterThan(0);
+});
+
+test('should show saved edits in view mode', async ({ page }) => {
+  const first = await selectFirst(page);
+  const start = await bounds(first);
+  await drag(
+    page,
+    first.getByRole('button', { name: 'Select Along Superior' }),
+    48,
+    32,
+  );
+  await drag(page, first.locator('.resize-notch'), 60, 0);
+
+  await first.getByRole('button', { name: 'Lake Superior · Oct 2025' }).click();
+  const metadata = first.getByRole('textbox', { name: 'Collection metadata' });
+  await metadata.fill('North Shore · Nov 2025');
+  await metadata.press('Enter');
+
+  await first
+    .getByRole('button', { name: 'Along Superior', exact: true })
+    .click();
+  const title = first.getByRole('textbox', { name: 'Collection title' });
+  await title.fill('Along the North Shore');
+  await title.press('Enter');
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  const saved = collection(page, 'Along the North Shore');
+  await expect(
+    saved.getByRole('heading', { name: 'Along the North Shore' }),
+  ).toBeVisible();
+  await expect(saved.getByText('North Shore · Nov 2025')).toBeVisible();
+  await expect(saved.getByRole('link')).toBeVisible();
+
+  const position = await bounds(saved);
+  expect(position.x - start.x).toBeCloseTo(48, 0);
+  expect(position.y - start.y).toBeCloseTo(32, 0);
+  expect(position.width - start.width).toBeCloseTo(60, 0);
+});
+
+test('should hide editing controls on smaller screens', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await expect(
+    collection(page, 'Along Superior').getByRole('link'),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Edit collections' }),
+  ).toHaveCount(0);
+});
+
+test('should show collections in one column on smaller screens', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  const items = await board(page).getByRole('article').all();
+  expect(items.length).toBeGreaterThan(1);
+  const boxes = await Promise.all(items.map(bounds));
+
+  for (let index = 1; index < boxes.length; index++) {
+    const previous = boxes[index - 1];
+    const current = boxes[index];
+
+    expect(current.x).toBeCloseTo(previous.x);
+    expect(current.width).toBeCloseTo(previous.width);
+    expect(current.y).toBeGreaterThanOrEqual(previous.y + previous.height);
+  }
+
+  expect(boxes[0].x).toBeGreaterThanOrEqual(0);
+  expect(boxes[0].x + boxes[0].width).toBeLessThanOrEqual(390);
+});
+
+test('should sort collections by y position on smaller screens', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  const titles = await board(page)
+    .getByRole('heading', { level: 2 })
+    .allTextContents();
+
+  expect(titles).toEqual([
+    'Along Superior',
+    'Freight Country',
+    'Quiet Water',
+    'After the Shift',
+  ]);
+});
