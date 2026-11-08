@@ -1,0 +1,24 @@
+# TypeScript
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Go
+/bin/
+*.test
+coverage.out
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+
+# Local files
+.env
+.env.*
+!.env.example
+.DS_Store
