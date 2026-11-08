@@ -33,12 +33,14 @@ type Drag = {
 
 type Props = {
   collections: Collection[];
-  onSave: (collections: Collection[]) => void;
+  canEdit: boolean;
+  onSave: (collections: Collection[]) => Promise<void>;
   onOpen: (event: MouseEvent<HTMLAnchorElement>) => void;
 };
 
 export default function CollectionBoard({
   collections,
+  canEdit,
   onSave,
   onOpen,
 }: Props) {
@@ -48,13 +50,17 @@ export default function CollectionBoard({
   );
   const [draft, setDraft] = useState<Collection[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const board = useRef<HTMLElement>(null);
   const drag = useRef<Drag | null>(null);
   const scrollToNew = useRef(false);
-  const editing = !compact && draft !== null;
+  const editing = canEdit && !compact && draft !== null;
   const items = compact
     ? [...collections].sort((a, b) => a.y - b.y)
-    : (draft ?? collections);
+    : editing
+      ? draft
+      : collections;
 
   useLayoutEffect(() => {
     if (!scrollToNew.current) return;
@@ -88,7 +94,7 @@ export default function CollectionBoard({
       metadata: '',
       coverPhotoId: null,
       x: 0.08,
-      y: frame.height / frame.width + 0.05,
+      y: draft.length ? frame.height / frame.width + 0.05 : 0,
       width: 0.38,
     };
 
@@ -97,12 +103,20 @@ export default function CollectionBoard({
     setDraft([...draft, collection]);
   }
 
-  function save() {
-    if (!draft) return;
+  async function save() {
+    if (!editing || saving) return;
 
-    onSave(draft);
-    setDraft(null);
-    setSelectedId(null);
+    setSaving(true);
+    setSaveError(false);
+    try {
+      await onSave(draft);
+      setDraft(null);
+      setSelectedId(null);
+    } catch {
+      setSaveError(true);
+    } finally {
+      setSaving(false);
+    }
   }
 
   function startDrag(
@@ -111,7 +125,7 @@ export default function CollectionBoard({
     collection: Collection,
   ) {
     const boardWidth = board.current?.getBoundingClientRect().width;
-    if (event.button !== 0 || !boardWidth) return;
+    if (saving || event.button !== 0 || !boardWidth) return;
 
     event.currentTarget.setPointerCapture(event.pointerId);
     drag.current = {
@@ -126,7 +140,7 @@ export default function CollectionBoard({
 
   function dragTo(event: PointerEvent) {
     const gesture = drag.current;
-    if (!editing || gesture?.pointerId !== event.pointerId) return;
+    if (!editing || saving || gesture?.pointerId !== event.pointerId) return;
 
     const { action, start, clientX, clientY, boardWidth } = gesture;
     const dx = (event.clientX - clientX) / boardWidth;
@@ -152,7 +166,7 @@ export default function CollectionBoard({
   }
 
   function nudge(event: KeyboardEvent<HTMLElement>) {
-    if (!editing || event.target instanceof HTMLInputElement) return;
+    if (!editing || saving || event.target instanceof HTMLInputElement) return;
 
     const directions: Record<string, [number, number]> = {
       ArrowLeft: [-1, 0],
@@ -175,59 +189,70 @@ export default function CollectionBoard({
 
   return (
     <main onKeyDown={nudge}>
-      <div className="board-heading">
-        <h1>Collections</h1>
+      <fieldset className="board-controls" disabled={saving} aria-busy={saving}>
+        <div className="board-heading">
+          <h1>Collections</h1>
 
-        {!compact && (
-          <div className="board-toolbar">
-            <button
-              type="button"
-              onClick={editing ? add : () => setDraft(collections)}
-            >
-              {editing ? (
-                <>
-                  <span aria-hidden="true">+ </span>Add collection
-                </>
-              ) : (
-                'Edit collections'
-              )}
-            </button>
-            {editing && (
-              <button type="button" className="save-board" onClick={save}>
-                Save
+          {canEdit && !compact && (
+            <div className="board-toolbar">
+              <button
+                type="button"
+                onClick={editing ? add : () => setDraft(collections)}
+              >
+                {editing ? (
+                  <>
+                    <span aria-hidden="true">+ </span>Add collection
+                  </>
+                ) : (
+                  'Edit collections'
+                )}
               </button>
-            )}
-          </div>
-        )}
-      </div>
+              {editing && (
+                <button type="button" className="save-board" onClick={save}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
-      <section
-        ref={board}
-        aria-label="Collections"
-        className={compact ? 'collection-board compact' : 'collection-board'}
-        onPointerMove={dragTo}
-        onLostPointerCapture={stopDrag}
-      >
-        {items.map((item) => (
-          <CollectionItem
-            key={item.id}
-            collection={item}
-            editing={editing}
-            selected={editing && item.id === selectedId}
-            onOpen={onOpen}
-            onSelect={() => setSelectedId(item.id)}
-            onChange={(change) => update(item.id, change)}
-            onDelete={() => {
-              setDraft(
-                (current) =>
-                  current?.filter(({ id }) => id !== item.id) ?? null,
-              );
-              setSelectedId(null);
-            }}
-            onTransform={(event, action) => startDrag(event, action, item)}
-          />
-        ))}
-      </section>
+        {editing && saveError && (
+          <p className="save-error" role="alert">
+            Could not save changes.
+          </p>
+        )}
+
+        <section
+          ref={board}
+          aria-label="Collections"
+          className={compact ? 'collection-board compact' : 'collection-board'}
+          onPointerMove={dragTo}
+          onLostPointerCapture={stopDrag}
+        >
+          {items.length === 0 && (
+            <p className="empty-board">No collections yet.</p>
+          )}
+          {items.map((item) => (
+            <CollectionItem
+              key={item.id}
+              collection={item}
+              editing={editing}
+              selected={editing && item.id === selectedId}
+              onOpen={onOpen}
+              onSelect={() => setSelectedId(item.id)}
+              onChange={(change) => update(item.id, change)}
+              onDelete={() => {
+                setDraft(
+                  (current) =>
+                    current?.filter(({ id }) => id !== item.id) ?? null,
+                );
+                setSelectedId(null);
+              }}
+              onTransform={(event, action) => startDrag(event, action, item)}
+            />
+          ))}
+        </section>
+      </fieldset>
     </main>
   );
 }

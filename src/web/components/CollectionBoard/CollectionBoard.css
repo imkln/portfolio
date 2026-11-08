@@ -35,3 +35,19 @@
 .collection-board.compact {
   gap: 30px;
 }
+
+.board-controls {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.empty-board {
+  color: var(--muted);
+}
+
+.save-error {
+  margin-bottom: 1rem;
+  color: var(--accent);
+}

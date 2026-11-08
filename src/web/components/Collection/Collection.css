@@ -19,12 +19,10 @@
   border-radius: 0;
 }
 
-.cover-photo,
 .cover-empty {
   display: block;
   width: 100%;
   aspect-ratio: 3 / 2;
-  object-fit: cover;
 }
 
 .cover-empty {
