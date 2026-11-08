@@ -1,0 +1,103 @@
+name: Build and Test
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/web
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.4'
+
+      - run: bun install --frozen-lockfile
+
+      - run: bun run test
+
+      - run: bunx playwright install --with-deps chromium
+
+      - run: bun run test:browser
+
+      - run: bun run build
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web
+          path: src/web/dist
+          retention-days: 1
+          if-no-files-found: error
+
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - run: go test ./...
+
+      - run: go vet ./...
+
+      - run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -tags lambda.norpc -o build/bootstrap ./src/api/cmd/server
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: api
+          path: build/bootstrap
+          retention-days: 1
+          if-no-files-found: error
+
+  infra:
+    needs: [web, api]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.16.4'
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: web
+          path: src/web/dist
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: api
+          path: build
+
+      - run: bash -n ../script/bootstrap.sh && bash -n ../script/package.sh
+
+      - run: bash ../script/package.sh
+
+      - run: terraform fmt -check
+
+      - run: terraform init -backend=false -input=false -lockfile=readonly
+
+      - run: terraform validate
+
+      - uses: actions/upload-artifact@v7
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: lambda
+          path: build/lambda.zip
+          retention-days: 1
+          if-no-files-found: error
