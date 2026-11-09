@@ -251,7 +251,8 @@ deploy_policy=$(render_policy <<'POLICY'
         "apigateway:POST",
         "apigateway:PATCH",
         "apigateway:PUT",
-        "apigateway:DELETE"
+        "apigateway:DELETE",
+        "apigateway:TagResource"
       ],
       "Resource": [
         "arn:aws:apigateway:@REGION@::/apis",
@@ -276,6 +277,7 @@ deploy_policy=$(render_policy <<'POLICY'
       "Effect": "Allow",
       "Action": [
         "cognito-idp:DescribeUserPool",
+        "cognito-idp:GetUserPoolMfaConfig",
         "cognito-idp:UpdateUserPool",
         "cognito-idp:DeleteUserPool",
         "cognito-idp:ListTagsForResource",
