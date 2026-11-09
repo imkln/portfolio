@@ -156,11 +156,6 @@ func (app *Sessions) IsOwner(r *http.Request) bool {
 }
 
 func (app *Sessions) logout(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("Origin") != app.config.Origin {
-		http.Error(w, "Invalid request origin", http.StatusForbidden)
-		return
-	}
-
 	app.clearCookie(w, sessionCookie)
 	app.clearCookie(w, flowCookie)
 	query := url.Values{

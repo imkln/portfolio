@@ -181,6 +181,6 @@ func newFixture(t *testing.T, store collections.Store, email string) *testutils.
 	t.Helper()
 
 	fixture := testutils.NewAuth(t, email)
-	collections.Register(fixture.Mux, store, testutils.Origin, fixture.Sessions.IsOwner)
+	collections.Register(fixture.Mux, store, fixture.Sessions.IsOwner)
 	return fixture
 }

@@ -11,18 +11,24 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-const readyState = "ready"
+const (
+	readyState    = "ready"
+	deletingState = "deleting"
+)
 
-type queryClient interface {
+type dynamoClient interface {
 	Query(context.Context, *dynamodb.QueryInput, ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
+	GetItem(context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
+	UpdateItem(context.Context, *dynamodb.UpdateItemInput, ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
+	DeleteItem(context.Context, *dynamodb.DeleteItemInput, ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
 }
 
 type dynamoStore struct {
-	client queryClient
+	client dynamoClient
 	table  string
 }
 
-func NewDynamoStore(client queryClient, table string) *dynamoStore {
+func NewDynamoStore(client dynamoClient, table string) *dynamoStore {
 	return &dynamoStore{client: client, table: table}
 }
 
@@ -79,4 +85,62 @@ func (store *dynamoStore) ListReady(ctx context.Context, after string, limit int
 		next = key.Value
 	}
 	return items, next, nil
+}
+
+func (store *dynamoStore) IsReady(ctx context.Context, id string) (bool, error) {
+	result, err := store.client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName:            aws.String(store.table),
+		Key:                  photoKey(id),
+		ConsistentRead:       aws.Bool(true),
+		ProjectionExpression: aws.String("#state"),
+		ExpressionAttributeNames: map[string]string{
+			"#state": "state",
+		},
+	})
+	if err != nil {
+		return false, err
+	}
+
+	state, ok := result.Item["state"].(*types.AttributeValueMemberS)
+	return ok && state.Value == readyState, nil
+}
+
+func (store *dynamoStore) BeginDelete(ctx context.Context, id string) (bool, error) {
+	_, err := store.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName:           aws.String(store.table),
+		Key:                 photoKey(id),
+		ConditionExpression: aws.String("#state = :ready"),
+		UpdateExpression:    aws.String("SET #state = :deleting"),
+		ExpressionAttributeNames: map[string]string{
+			"#state": "state",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":ready":    &types.AttributeValueMemberS{Value: readyState},
+			":deleting": &types.AttributeValueMemberS{Value: deletingState},
+		},
+	})
+	var notReady *types.ConditionalCheckFailedException
+	if errors.As(err, &notReady) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+func (store *dynamoStore) FinishDelete(ctx context.Context, id string) error {
+	_, err := store.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName:           aws.String(store.table),
+		Key:                 photoKey(id),
+		ConditionExpression: aws.String("#state = :deleting"),
+		ExpressionAttributeNames: map[string]string{
+			"#state": "state",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":deleting": &types.AttributeValueMemberS{Value: deletingState},
+		},
+	})
+	return err
+}
+
+func photoKey(id string) map[string]types.AttributeValue {
+	return map[string]types.AttributeValue{"id": &types.AttributeValueMemberS{Value: id}}
 }

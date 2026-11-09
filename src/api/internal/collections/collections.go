@@ -56,10 +56,6 @@ func (app *handler) replace(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized)
 		return
 	}
-	if r.Header.Get("Origin") != app.origin {
-		writeError(w, http.StatusForbidden)
-		return
-	}
 
 	var config List
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxListBytes))
@@ -111,12 +107,11 @@ func (item Collection) validLayout() bool {
 
 type handler struct {
 	store   Store
-	origin  string
 	isOwner func(*http.Request) bool
 }
 
-func Register(mux *http.ServeMux, store Store, origin string, isOwner func(*http.Request) bool) {
-	app := handler{store: store, origin: origin, isOwner: isOwner}
+func Register(mux *http.ServeMux, store Store, isOwner func(*http.Request) bool) {
+	app := handler{store: store, isOwner: isOwner}
 	mux.HandleFunc("GET /api/collections", app.list)
 	mux.HandleFunc("PUT /api/collections", app.replace)
 }

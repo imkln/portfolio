@@ -29,6 +29,21 @@ resource "aws_iam_role_policy" "api" {
       },
       {
         Effect   = "Allow"
+        Action   = ["dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem"]
+        Resource = aws_dynamodb_table.photos.arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:DeleteObject"]
+        Resource = ["${aws_s3_bucket.photos.arn}/originals/*", "${aws_s3_bucket.photos.arn}/thumbnails/*"]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
+        Resource = "${aws_s3_bucket.photos.arn}/uploads/*"
+      },
+      {
+        Effect   = "Allow"
         Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = "${aws_cloudwatch_log_group.api.arn}:log-stream:*"
       }
@@ -54,14 +69,16 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      APP_ORIGIN        = aws_apigatewayv2_api.web.api_endpoint
-      OIDC_ISSUER       = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.owner.id}"
-      OIDC_CLIENT_ID    = aws_cognito_user_pool_client.web.id
-      AUTH_DOMAIN       = "https://${aws_cognito_user_pool_domain.login.domain}.auth.${var.aws_region}.amazoncognito.com"
-      OWNER_EMAIL       = var.owner_email
-      COOKIE_KEY        = random_id.cookie_key.hex
-      COLLECTIONS_TABLE = aws_dynamodb_table.collections.name
-      PHOTOS_TABLE      = aws_dynamodb_table.photos.name
+      APP_ORIGIN          = aws_apigatewayv2_api.web.api_endpoint
+      OIDC_ISSUER         = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.owner.id}"
+      OIDC_CLIENT_ID      = aws_cognito_user_pool_client.web.id
+      AUTH_DOMAIN         = "https://${aws_cognito_user_pool_domain.login.domain}.auth.${var.aws_region}.amazoncognito.com"
+      OWNER_EMAIL         = var.owner_email
+      COOKIE_KEY          = random_id.cookie_key.hex
+      COLLECTIONS_TABLE   = aws_dynamodb_table.collections.name
+      PHOTOS_TABLE        = aws_dynamodb_table.photos.name
+      PHOTO_UPLOAD_BUCKET = aws_s3_bucket.photos.bucket
+      PHOTO_UPLOAD_ORIGIN = "https://${aws_s3_bucket.photos.bucket_regional_domain_name}"
     }
   }
 
