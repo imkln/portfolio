@@ -5,9 +5,10 @@ type Props = {
   name: string;
   original: string;
   onClose: () => void;
+  onNavigate: (direction: -1 | 1) => void;
 };
 
-export default function PhotoViewer({ name, original, onClose }: Props) {
+export default function PhotoViewer({ name, original, onClose, onNavigate }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -22,6 +23,12 @@ export default function PhotoViewer({ name, original, onClose }: Props) {
       onClose={onClose}
       onClick={(event) => {
         if (event.target === event.currentTarget) event.currentTarget.close();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+
+        event.preventDefault();
+        onNavigate(event.key === 'ArrowLeft' ? -1 : 1);
       }}
     >
       <button

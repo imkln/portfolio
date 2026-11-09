@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import ActionBar from '../components/ActionBar/ActionBar';
+import ConfirmationDialog from '../components/ConfirmationDialog/ConfirmationDialog';
 import PhotoGrid from '../components/PhotoGrid/PhotoGrid';
 import PhotoViewer from '../components/PhotoViewer/PhotoViewer';
 import type { Photo } from '../data/Photo';
@@ -11,6 +12,7 @@ export default function Photos() {
     photos,
     hasMore,
     nextPage,
+    loadMore,
     loading,
     loadError,
     upload,
@@ -18,7 +20,7 @@ export default function Photos() {
     uploadError,
     remove,
   } = usePhotoLibrary();
-  const [viewing, setViewing] = useState<Photo | null>(null);
+  const [viewing, setViewing] = useState<{ photo: Photo } | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
@@ -27,6 +29,24 @@ export default function Photos() {
   const input = useRef<HTMLInputElement>(null);
   const confirmation = useRef<HTMLDialogElement>(null);
   const modeButton = useRef<HTMLButtonElement>(null);
+
+  async function navigatePhoto(direction: -1 | 1) {
+    if (!viewing) return;
+
+    const index = photos.indexOf(viewing.photo);
+    const next = photos[index + direction];
+    if (next) {
+      setViewing({ photo: next });
+      return;
+    }
+
+    if (direction === 1) {
+      const [first] = (await loadMore()) ?? [];
+      if (first) {
+        setViewing((current) => (current === viewing ? { photo: first } : current));
+      }
+    }
+  }
 
   function toggle(photo: Photo, shift: boolean) {
     const start = photos.findIndex(({ id }) => id === anchor.current);
@@ -59,7 +79,6 @@ export default function Photos() {
   }
 
   async function deletePhotos() {
-    confirmation.current?.close();
     setDeleting(true);
     setDeleteError(false);
 
@@ -128,7 +147,6 @@ export default function Photos() {
       />
 
       {loading && <p role="status">Loading photos…</p>}
-      {uploading && <p role="status">Uploading photos…</p>}
       {loadError && <p role="alert">Could not load photos.</p>}
       {uploadError && <p role="alert">{uploadError}</p>}
       {deleteError && <p role="alert">Some photos could not be deleted.</p>}
@@ -140,7 +158,7 @@ export default function Photos() {
           onActivate={(photo, shift) => {
             if (deleting) return;
             if (selecting) toggle(photo, shift);
-            else setViewing(photo);
+            else setViewing({ photo });
           }}
         />
       )}
@@ -148,31 +166,19 @@ export default function Photos() {
 
       {viewing && (
         <PhotoViewer
-          name={viewing.name}
-          original={viewing.original}
+          name={viewing.photo.name}
+          original={viewing.photo.original}
           onClose={() => setViewing(null)}
+          onNavigate={(direction) => void navigatePhoto(direction)}
         />
       )}
 
-      <dialog
+      <ConfirmationDialog
         ref={confirmation}
-        className="photo-confirmation"
-        aria-labelledby="photo-confirmation-title"
-      >
-        <h2 id="photo-confirmation-title">
-          {selected.size === 1
-            ? 'Delete this photo?'
-            : `Delete ${selected.size} photos?`}
-        </h2>
-        <div>
-          <button type="button" onClick={() => confirmation.current?.close()}>
-            Cancel
-          </button>
-          <button type="button" onClick={() => void deletePhotos()}>
-            Delete
-          </button>
-        </div>
-      </dialog>
+        title={selected.size === 1 ? 'Delete this photo?' : `Delete ${selected.size} photos?`}
+        confirmLabel="Delete"
+        onConfirm={() => void deletePhotos()}
+      />
     </main>
   );
 }

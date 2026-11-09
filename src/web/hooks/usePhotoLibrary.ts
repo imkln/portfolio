@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Photo } from '../data/Photo';
 import {
   deletePhoto,
@@ -15,6 +15,7 @@ export default function usePhotoLibrary() {
   const [uploadError, setUploadError] = useState('');
   const nextPage = useRef<HTMLDivElement>(null);
   const requests = useRef<AbortController | null>(null);
+  const pageRequest = useRef<{ token: string; result: Promise<Photo[] | undefined> } | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -39,31 +40,42 @@ export default function usePhotoLibrary() {
     return () => controller.abort();
   }, []);
 
+  const loadMore = useCallback(() => {
+    const signal = requests.current?.signal;
+    if (!signal || signal.aborted || !pageToken || loadError) return;
+    if (pageRequest.current?.token === pageToken) return pageRequest.current.result;
+
+    const result = listPhotos(signal, pageToken).then(
+      (page) => {
+        if (signal.aborted) return;
+
+        setPhotos((current) => [...current, ...page.photos]);
+        setPageToken(page.nextPageToken);
+        return page.photos;
+      },
+      () => {
+        if (!signal.aborted) setLoadError(true);
+        return undefined;
+      },
+    );
+    pageRequest.current = { token: pageToken, result };
+    return result;
+  }, [loadError, pageToken]);
+
   useEffect(() => {
     const end = nextPage.current;
-    const signal = requests.current?.signal;
-    if (!end || !signal || !pageToken || loadError) return;
+    if (!end) return;
 
     const observer = new IntersectionObserver(([entry]) => {
       if (!entry.isIntersecting) return;
 
       observer.disconnect();
-      void listPhotos(signal, pageToken).then(
-        (page) => {
-          if (signal.aborted) return;
-
-          setPhotos((current) => [...current, ...page.photos]);
-          setPageToken(page.nextPageToken);
-        },
-        () => {
-          if (!signal.aborted) setLoadError(true);
-        },
-      );
+      void loadMore();
     });
     observer.observe(end);
 
     return () => observer.disconnect();
-  }, [loadError, pageToken]);
+  }, [loadMore]);
 
   async function upload(files: FileList) {
     const signal = requests.current?.signal;
@@ -118,6 +130,7 @@ export default function usePhotoLibrary() {
     photos,
     hasMore: Boolean(pageToken) && !loadError,
     nextPage,
+    loadMore,
     loading,
     loadError,
     upload,

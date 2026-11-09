@@ -113,6 +113,42 @@ test('can open the original photo', async ({ page }) => {
   await expect(viewer.getByRole('button', { name: 'Close' })).toBeVisible();
 });
 
+test('can open the next photo with right arrow', async ({ page }) => {
+  await openPhotos(page);
+  await photo(page, 'Photo 1').click();
+
+  await page.keyboard.press('ArrowRight');
+
+  const viewer = page.getByRole('dialog', { name: 'Photo viewer' });
+  await expect(viewer.getByRole('img', { name: 'Photo 2', exact: true })).toBeVisible();
+});
+
+test('can open the previous photo with left arrow', async ({ page }) => {
+  await openPhotos(page);
+  await photo(page, 'Photo 2').click();
+
+  await page.keyboard.press('ArrowLeft');
+
+  const viewer = page.getByRole('dialog', { name: 'Photo viewer' });
+  await expect(viewer.getByRole('img', { name: 'Photo 1', exact: true })).toBeVisible();
+});
+
+test('can open the next page of photos with right arrow', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openPhotos(page);
+  await photo(page, 'Photo 1').click();
+  const viewer = page.getByRole('dialog', { name: 'Photo viewer' });
+
+  for (let index = 1; index < 24; index++) {
+    await page.keyboard.press('ArrowRight');
+  }
+  await expect(viewer.getByRole('img', { name: 'Photo 24', exact: true })).toBeVisible();
+
+  await page.keyboard.press('ArrowRight');
+
+  await expect(viewer.getByRole('img', { name: 'Photo 25', exact: true })).toBeVisible();
+});
+
 test('can close the photo with Escape', async ({ page }) => {
   await openPhotos(page);
   const thumbnail = photo(page, 'Photo 1');
