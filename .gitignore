@@ -22,3 +22,6 @@ coverage.out
 .env.*
 !.env.example
 .DS_Store
+
+# Deployment package
+/build/

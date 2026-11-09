@@ -1,4 +1,4 @@
-import type { Collection } from './Collection';
+import type { Collection } from '../data/Collection';
 
 export const sampleCollections: Collection[] = [
   {

@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { sampleCollections } from '../data/sampleCollections';
+import { sampleCollections } from '../../testutils/sampleCollections';
+import { mockApi } from '../../testutils/fakeApi';
 
 function board(page: Page) {
   return page.getByRole('region', { name: 'Collections' });
@@ -39,7 +40,11 @@ async function selectFirst(page: Page) {
 
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1200, height: 850 });
+  await mockApi(page, { owner: true });
   await page.goto('/');
+  await expect(
+    page.getByRole('button', { name: 'Edit collections' }),
+  ).toBeVisible();
 });
 
 test('should position a collection using its layout', async ({ page }) => {
@@ -75,12 +80,12 @@ test('can move a selected collection', async ({ page }) => {
 
 test('can resize a selected collection', async ({ page }) => {
   const first = await selectFirst(page);
-  const photo = first.locator('img');
-  const start = await bounds(photo);
+  const cover = first.getByRole('button', { name: 'Select Along Superior' });
+  const start = await bounds(cover);
 
   await drag(page, first.locator('.resize-notch'), 60, 0);
 
-  const resized = await bounds(photo);
+  const resized = await bounds(cover);
   expect(resized.width - start.width).toBeCloseTo(60, 0);
   expect(resized.width / resized.height).toBeCloseTo(
     start.width / start.height,
@@ -156,7 +161,15 @@ test('should scroll to and select the new collection', async ({ page }) => {
     .toBeGreaterThan(0);
 });
 
-test('should show saved edits in view mode', async ({ page }) => {
+test('should send edits to the API and return to view mode', async ({
+  page,
+}) => {
+  await page.route('**/api/collections', (route) =>
+    route.request().method() === 'PUT'
+      ? route.fulfill({ status: 204 })
+      : route.fallback(),
+  );
+  const frame = await bounds(board(page));
   const first = await selectFirst(page);
   const start = await bounds(first);
   await drag(
@@ -178,7 +191,27 @@ test('should show saved edits in view mode', async ({ page }) => {
   const title = first.getByRole('textbox', { name: 'Collection title' });
   await title.fill('Along the North Shore');
   await title.press('Enter');
-  await page.getByRole('button', { name: 'Save' }).click();
+
+  const request = page.waitForRequest(
+    (request) =>
+      request.method() === 'PUT' &&
+      new URL(request.url()).pathname === '/api/collections',
+  );
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+  const payload = (await request).postDataJSON();
+  expect(payload.collections).toHaveLength(sampleCollections.length);
+  const edited = payload.collections.find(
+    ({ id }: { id: string }) => id === 'along-superior',
+  );
+  expect(edited).toMatchObject({
+    title: 'Along the North Shore',
+    metadata: 'North Shore · Nov 2025',
+    coverPhotoId: 'ore-dock',
+  });
+  expect(edited.x).toBeCloseTo((start.x - frame.x + 48) / frame.width, 3);
+  expect(edited.y).toBeCloseTo((start.y - frame.y + 32) / frame.width, 3);
+  expect(edited.width).toBeCloseTo((start.width + 60) / frame.width, 3);
 
   const saved = collection(page, 'Along the North Shore');
   await expect(
@@ -191,6 +224,33 @@ test('should show saved edits in view mode', async ({ page }) => {
   expect(position.x - start.x).toBeCloseTo(48, 0);
   expect(position.y - start.y).toBeCloseTo(32, 0);
   expect(position.width - start.width).toBeCloseTo(60, 0);
+});
+
+test('should keep edits open when saving fails', async ({ page }) => {
+  await page.route('**/api/collections', (route) =>
+    route.request().method() === 'PUT'
+      ? route.fulfill({ status: 500 })
+      : route.fallback(),
+  );
+  const first = await selectFirst(page);
+  await first
+    .getByRole('button', { name: 'Along Superior', exact: true })
+    .click();
+  const title = first.getByRole('textbox', { name: 'Collection title' });
+  await title.fill('Unsaved title');
+  await title.press('Enter');
+
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+  await expect(page.getByRole('alert')).toHaveText('Could not save changes.');
+  await expect(
+    collection(page, 'Unsaved title').getByRole('button', {
+      name: 'Delete collection',
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Save', exact: true }),
+  ).toBeEnabled();
 });
 
 test('should hide editing controls on smaller screens', async ({ page }) => {
@@ -208,6 +268,10 @@ test('should show collections in one column on smaller screens', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
+
+  await expect(
+    page.getByRole('button', { name: 'Edit collections' }),
+  ).toBeHidden();
 
   const items = await board(page).getByRole('article').all();
   expect(items.length).toBeGreaterThan(1);
@@ -231,11 +295,9 @@ test('should sort collections by y position on smaller screens', async ({
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
 
-  const titles = await board(page)
-    .getByRole('heading', { level: 2 })
-    .allTextContents();
+  const titles = board(page).getByRole('heading', { level: 2 });
 
-  expect(titles).toEqual([
+  await expect(titles).toHaveText([
     'Along Superior',
     'Freight Country',
     'Quiet Water',

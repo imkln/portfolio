@@ -19,12 +19,10 @@
   border-radius: 0;
 }
 
-.cover-photo,
 .cover-empty {
   display: block;
   width: 100%;
   aspect-ratio: 3 / 2;
-  object-fit: cover;
 }
 
 .cover-empty {
@@ -100,20 +98,13 @@
   margin-top: 9px;
   font-size: clamp(17px, 2.2vw, 25px);
   line-height: 1.25;
-  font-weight: 500;
-  letter-spacing: -0.04em;
+  font-weight: 400;
+  letter-spacing: -0.015em;
 }
 
 .collection-metadata {
   min-height: 1.45em;
   margin-top: 3px;
-  color: var(--muted);
-  font:
-    400 11px/1.45 ui-monospace,
-    Menlo,
-    monospace;
-  letter-spacing: 0.065em;
-  text-transform: uppercase;
 }
 
 .caption-button,

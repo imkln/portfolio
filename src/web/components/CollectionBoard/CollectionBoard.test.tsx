@@ -36,7 +36,8 @@ function renderBoard() {
   render(
     <CollectionBoard
       collections={collections}
-      onSave={() => {}}
+      canEdit
+      onSave={async () => {}}
       onOpen={() => {}}
     />,
   );

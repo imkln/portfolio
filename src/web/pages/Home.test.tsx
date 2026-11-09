@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, it } from 'vitest';
 import Home from './Home';
-import { sampleCollections } from '../data/sampleCollections';
+import { sampleCollections } from '../testutils/sampleCollections';
 
 afterEach(cleanup);
 
@@ -10,7 +10,8 @@ it('should show the collections on Home', () => {
   render(
     <Home
       collections={sampleCollections}
-      onSave={() => {}}
+      canEdit
+      onSave={async () => {}}
       onOpen={() => {}}
     />,
   );
