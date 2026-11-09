@@ -192,6 +192,7 @@ deploy_policy=$(render_policy <<'POLICY'
       "Action": [
         "lambda:CreateFunction",
         "lambda:GetFunction",
+        "lambda:GetFunctionCodeSigningConfig",
         "lambda:UpdateFunctionCode",
         "lambda:UpdateFunctionConfiguration",
         "lambda:ListVersionsByFunction",
