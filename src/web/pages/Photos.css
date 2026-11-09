@@ -1,0 +1,37 @@
+.photos-page {
+  padding-top: clamp(20px, 3vw, 34px);
+}
+
+.photo-selection-count {
+  padding-inline: 8px;
+  color: var(--muted);
+}
+
+.photo-page-end {
+  height: 1px;
+}
+
+.photo-confirmation {
+  max-width: calc(100% - 2 * var(--page-gutter));
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.photo-confirmation::backdrop {
+  background: rgb(0 0 0 / 60%);
+}
+
+.photo-confirmation h2 {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.photo-confirmation div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}

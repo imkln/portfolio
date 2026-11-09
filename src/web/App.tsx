@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { MouseEvent } from 'react';
+import Header from './components/Header/Header';
 import type { Collection as CollectionData } from './data/Collection';
 import Collection from './pages/Collection';
 import Home from './pages/Home';
+import Photos from './pages/Photos';
 
 export default function App() {
   const [collections, setCollections] = useState<
@@ -88,25 +90,21 @@ export default function App() {
 
   return (
     <>
-      <header className="mast">
-        <a href="/" onClick={navigate}>
-          imkln's portfolio
-        </a>
-        {signedIn === false && (
-          <a className="session-action" href="/auth/login">
-            Sign in
-          </a>
-        )}
-        {signedIn === true && (
-          <form action="/auth/logout" method="post">
-            <button className="session-action" type="submit">
-              Sign out
-            </button>
-          </form>
-        )}
-      </header>
+      <Header path={path} signedIn={signedIn} onNavigate={navigate} />
       <div className={collection ? 'frame collection-frame' : 'frame'}>
-        {collection ? (
+        {path === '/photos' ? (
+          signedIn === true ? (
+            <Photos />
+          ) : (
+            <main className="photos-page">
+              {signedIn === false ? (
+                <p>Sign in to view photos.</p>
+              ) : (
+                <p role="status">Checking session…</p>
+              )}
+            </main>
+          )
+        ) : collection ? (
           <Collection collection={collection} />
         ) : (
           <Home

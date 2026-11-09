@@ -1,35 +1,18 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { KeyboardEvent, MouseEvent, PointerEvent } from 'react';
+import type { MouseEvent } from 'react';
 import type { Collection } from '../../data/Collection';
+import ActionBar from '../ActionBar/ActionBar';
 import CollectionItem from '../Collection/Collection';
-import type { Transform } from '../Collection/Collection';
+import useCollectionGestures from './useCollectionGestures';
 import './CollectionBoard.css';
 
 const smallScreen = '(max-width: 720px)';
-const nudgePixels = 8;
-const minimumWidth = 0.12;
 
 function subscribeToScreen(onChange: () => void) {
   const query = window.matchMedia(smallScreen);
   query.addEventListener('change', onChange);
   return () => query.removeEventListener('change', onChange);
 }
-
-function move(collection: Collection, dx: number, dy: number) {
-  return {
-    x: Math.max(0, Math.min(1 - collection.width, collection.x + dx)),
-    y: Math.max(0, collection.y + dy),
-  };
-}
-
-type Drag = {
-  pointerId: number;
-  action: Transform;
-  start: Collection;
-  clientX: number;
-  clientY: number;
-  boardWidth: number;
-};
 
 type Props = {
   collections: Collection[];
@@ -53,7 +36,6 @@ export default function CollectionBoard({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const board = useRef<HTMLElement>(null);
-  const drag = useRef<Drag | null>(null);
   const scrollToNew = useRef(false);
   const editing = canEdit && !compact && draft !== null;
   const items = compact
@@ -61,6 +43,12 @@ export default function CollectionBoard({
     : editing
       ? draft
       : collections;
+  const { startDrag, dragTo, stopDrag, nudge } = useCollectionGestures({
+    board,
+    editable: editing && !saving,
+    selected: items.find((item) => item.id === selectedId),
+    update,
+  });
 
   useLayoutEffect(() => {
     if (!scrollToNew.current) return;
@@ -119,79 +107,11 @@ export default function CollectionBoard({
     }
   }
 
-  function startDrag(
-    event: PointerEvent<HTMLElement>,
-    action: Transform,
-    collection: Collection,
-  ) {
-    const boardWidth = board.current?.getBoundingClientRect().width;
-    if (saving || event.button !== 0 || !boardWidth) return;
-
-    event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = {
-      pointerId: event.pointerId,
-      action,
-      start: collection,
-      clientX: event.clientX,
-      clientY: event.clientY,
-      boardWidth,
-    };
-  }
-
-  function dragTo(event: PointerEvent) {
-    const gesture = drag.current;
-    if (!editing || saving || gesture?.pointerId !== event.pointerId) return;
-
-    const { action, start, clientX, clientY, boardWidth } = gesture;
-    const dx = (event.clientX - clientX) / boardWidth;
-    const dy = (event.clientY - clientY) / boardWidth;
-
-    if (action === 'move') {
-      update(start.id, move(start, dx, dy));
-      return;
-    }
-
-    const vertical = dy * 1.5;
-    const delta = Math.abs(dx) >= Math.abs(vertical) ? dx : vertical;
-    const width = Math.max(
-      minimumWidth,
-      Math.min(1 - start.x, start.width + delta),
-    );
-
-    update(start.id, { width });
-  }
-
-  function stopDrag(event: PointerEvent) {
-    if (drag.current?.pointerId === event.pointerId) drag.current = null;
-  }
-
-  function nudge(event: KeyboardEvent<HTMLElement>) {
-    if (!editing || saving || event.target instanceof HTMLInputElement) return;
-
-    const directions: Record<string, [number, number]> = {
-      ArrowLeft: [-1, 0],
-      ArrowRight: [1, 0],
-      ArrowUp: [0, -1],
-      ArrowDown: [0, 1],
-    };
-    const direction = directions[event.key];
-    const selected = items.find((item) => item.id === selectedId);
-    const width = board.current?.getBoundingClientRect().width;
-    if (!direction || !selected || !width) return;
-
-    event.preventDefault();
-    const [x, y] = direction;
-    update(
-      selected.id,
-      move(selected, (x * nudgePixels) / width, (y * nudgePixels) / width),
-    );
-  }
-
   return (
     <main className="board-page" onKeyDown={nudge}>
       <fieldset className="board-controls" disabled={saving} aria-busy={saving}>
         {canEdit && !compact && (
-          <div className="board-toolbar">
+          <ActionBar>
             <button
               type="button"
               onClick={editing ? add : () => setDraft(collections)}
@@ -209,7 +129,7 @@ export default function CollectionBoard({
                 {saving ? 'Saving…' : 'Save'}
               </button>
             )}
-          </div>
+          </ActionBar>
         )}
 
         {editing && saveError && (
