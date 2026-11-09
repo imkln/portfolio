@@ -137,7 +137,7 @@ func (app *Sessions) verifyIdentity(ctx context.Context, rawToken string) (*oidc
 		}
 	}
 
-	return nil, errors.New("Google identity is required")
+	return nil, errors.New("a Google identity is required")
 }
 
 func (app *Sessions) IsOwner(r *http.Request) bool {
@@ -156,11 +156,6 @@ func (app *Sessions) IsOwner(r *http.Request) bool {
 }
 
 func (app *Sessions) logout(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("Origin") != app.config.Origin {
-		http.Error(w, "Invalid request origin", http.StatusForbidden)
-		return
-	}
-
 	app.clearCookie(w, sessionCookie)
 	app.clearCookie(w, flowCookie)
 	query := url.Values{

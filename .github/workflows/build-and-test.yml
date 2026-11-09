@@ -38,7 +38,7 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-  api:
+  backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -52,17 +52,23 @@ jobs:
 
       - run: go vet ./...
 
-      - run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -tags lambda.norpc -o build/bootstrap ./src/api/cmd/server
+      - name: Build API binary
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -tags lambda.norpc -o build/api ./src/api/cmd/server
+
+      - name: Build worker binary
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -tags lambda.norpc -o build/worker ./src/worker
 
       - uses: actions/upload-artifact@v7
         with:
-          name: api
-          path: build/bootstrap
+          name: go-binaries
+          path: |
+            build/api
+            build/worker
           retention-days: 1
           if-no-files-found: error
 
   infra:
-    needs: [web, api]
+    needs: [web, backend]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -81,7 +87,7 @@ jobs:
 
       - uses: actions/download-artifact@v8
         with:
-          name: api
+          name: go-binaries
           path: build
 
       - run: bash -n ../script/bootstrap.sh && bash -n ../script/package.sh
@@ -97,7 +103,9 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: github.event_name == 'workflow_dispatch'
         with:
-          name: lambda
-          path: build/lambda.zip
+          name: lambda-packages
+          path: |
+            build/api.zip
+            build/worker.zip
           retention-days: 1
           if-no-files-found: error

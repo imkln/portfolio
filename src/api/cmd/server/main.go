@@ -13,7 +13,9 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/awslabs/aws-lambda-go-api-proxy/httpadapter"
+	"github.com/imkln/portfolio/src/internal/photos"
 	"github.com/imkln/portfolio/src/api/internal/auth"
 	"github.com/imkln/portfolio/src/api/internal/collections"
 	"github.com/imkln/portfolio/src/api/internal/server"
@@ -37,9 +39,21 @@ func main() {
 		CookieKey:    os.Getenv("COOKIE_KEY"),
 	}
 
-	table := os.Getenv("COLLECTIONS_TABLE")
-	if table == "" {
+	collectionsTable := os.Getenv("COLLECTIONS_TABLE")
+	if collectionsTable == "" {
 		slog.Error("COLLECTIONS_TABLE is required")
+		os.Exit(1)
+	}
+
+	photosTable := os.Getenv("PHOTOS_TABLE")
+	if photosTable == "" {
+		slog.Error("PHOTOS_TABLE is required")
+		os.Exit(1)
+	}
+
+	uploadBucket := os.Getenv("PHOTO_UPLOAD_BUCKET")
+	if uploadBucket == "" {
+		slog.Error("PHOTO_UPLOAD_BUCKET is required")
 		os.Exit(1)
 	}
 
@@ -51,8 +65,13 @@ func main() {
 	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsConfig)
-	store := collections.NewDynamoStore(dynamoClient, table)
-	handler, err := server.New(ctx, appConfig, os.DirFS(*assets), store)
+	collectionStore := collections.NewDynamoStore(dynamoClient, collectionsTable)
+	photoStore := photos.NewDynamoStore(dynamoClient, photosTable)
+	photoFiles := photos.NewS3Store(s3.NewFromConfig(awsConfig), uploadBucket)
+	handler, err := server.New(
+		ctx, appConfig, os.DirFS(*assets), collectionStore, photoStore,
+		photoFiles, os.Getenv("PHOTO_UPLOAD_ORIGIN"),
+	)
 	if err != nil {
 		slog.Error("startup failed", "error", err)
 		os.Exit(1)

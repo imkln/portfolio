@@ -1,0 +1,42 @@
+.photo-viewer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 48px var(--page-gutter) 24px;
+  border: 0;
+  background: transparent;
+}
+
+.photo-viewer[open] {
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+}
+
+.photo-viewer::backdrop {
+  background: rgb(0 0 0 / 72%);
+}
+
+.photo-viewer img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
+
+.photo-viewer button {
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 26px;
+}
