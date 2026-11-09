@@ -76,11 +76,42 @@ runtime=$(render_policy <<'POLICY'
     },
     {
       "Effect": "Allow",
+      "Action": ["dynamodb:Query"],
+      "Resource": "arn:aws:dynamodb:@REGION@:@ACCOUNT@:table/@APPLICATION@-photos/index/photos-by-state"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["dynamodb:GetItem", "dynamodb:UpdateItem"],
+      "Resource": "arn:aws:dynamodb:@REGION@:@ACCOUNT@:table/@APPLICATION@-photos"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject"],
+      "Resource": "arn:aws:s3:::@APPLICATION@-photos-*/uploads/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": [
+        "arn:aws:s3:::@APPLICATION@-photos-*/originals/*",
+        "arn:aws:s3:::@APPLICATION@-photos-*/thumbnails/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
+      "Resource": "arn:aws:sqs:@REGION@:@ACCOUNT@:@APPLICATION@-photo-uploads"
+    },
+    {
+      "Effect": "Allow",
       "Action": [
         "logs:CreateLogStream",
         "logs:PutLogEvents"
       ],
-      "Resource": "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-api:log-stream:*"
+      "Resource": [
+        "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-api:log-stream:*",
+        "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-photo-worker:log-stream:*"
+      ]
     }
   ]
 }
@@ -151,7 +182,10 @@ deploy_policy=$(render_policy <<'POLICY'
       "Action": [
         "iam:CreateRole"
       ],
-      "Resource": "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-api",
+      "Resource": [
+        "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-api",
+        "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-photo-worker"
+      ],
       "Condition": {
         "StringEquals": {
           "iam:PermissionsBoundary": "arn:aws:iam::@ACCOUNT@:policy/@APPLICATION@-runtime-boundary"
@@ -173,14 +207,20 @@ deploy_policy=$(render_policy <<'POLICY'
         "iam:PutRolePolicy",
         "iam:DeleteRolePolicy"
       ],
-      "Resource": "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-api"
+      "Resource": [
+        "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-api",
+        "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-photo-worker"
+      ]
     },
     {
       "Effect": "Allow",
       "Action": [
         "iam:PassRole"
       ],
-      "Resource": "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-api",
+      "Resource": [
+        "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-api",
+        "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-photo-worker"
+      ],
       "Condition": {
         "StringEquals": {
           "iam:PassedToService": "lambda.amazonaws.com"
@@ -204,7 +244,10 @@ deploy_policy=$(render_policy <<'POLICY'
         "lambda:RemovePermission",
         "lambda:DeleteFunction"
       ],
-      "Resource": "arn:aws:lambda:@REGION@:@ACCOUNT@:function:@APPLICATION@-api"
+      "Resource": [
+        "arn:aws:lambda:@REGION@:@ACCOUNT@:function:@APPLICATION@-api",
+        "arn:aws:lambda:@REGION@:@ACCOUNT@:function:@APPLICATION@-photo-worker"
+      ]
     },
     {
       "Effect": "Allow",
@@ -226,7 +269,9 @@ deploy_policy=$(render_policy <<'POLICY'
       ],
       "Resource": [
         "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-api",
-        "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-api:*"
+        "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-api:*",
+        "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-photo-worker",
+        "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-photo-worker:*"
       ]
     },
     {
@@ -243,7 +288,80 @@ deploy_policy=$(render_policy <<'POLICY'
         "dynamodb:UpdateTable",
         "dynamodb:DeleteTable"
       ],
-      "Resource": "arn:aws:dynamodb:@REGION@:@ACCOUNT@:table/@APPLICATION@-collections"
+      "Resource": [
+        "arn:aws:dynamodb:@REGION@:@ACCOUNT@:table/@APPLICATION@-collections",
+        "arn:aws:dynamodb:@REGION@:@ACCOUNT@:table/@APPLICATION@-photos"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:ListBucket",
+        "s3:GetBucket*",
+        "s3:GetLifecycleConfiguration",
+        "s3:GetEncryptionConfiguration",
+        "s3:GetAccelerateConfiguration",
+        "s3:GetReplicationConfiguration",
+        "s3:GetObjectLockConfiguration",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutBucketCors",
+        "s3:PutBucketTagging",
+        "s3:PutLifecycleConfiguration",
+        "s3:PutBucketNotification",
+        "s3:ListTagsForResource",
+        "s3:TagResource",
+        "s3:UntagResource"
+      ],
+      "Resource": "arn:aws:s3:::@APPLICATION@-photos-*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sqs:CreateQueue",
+        "sqs:DeleteQueue",
+        "sqs:GetQueueUrl",
+        "sqs:GetQueueAttributes",
+        "sqs:SetQueueAttributes",
+        "sqs:ListQueueTags",
+        "sqs:TagQueue",
+        "sqs:UntagQueue"
+      ],
+      "Resource": "arn:aws:sqs:@REGION@:@ACCOUNT@:@APPLICATION@-photo-uploads"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["lambda:CreateEventSourceMapping"],
+      "Resource": "*",
+      "Condition": {
+        "ArnEquals": {
+          "lambda:FunctionArn": "arn:aws:lambda:@REGION@:@ACCOUNT@:function:@APPLICATION@-photo-worker"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["lambda:GetEventSourceMapping", "lambda:ListTags"],
+      "Resource": "arn:aws:lambda:@REGION@:@ACCOUNT@:event-source-mapping:*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["lambda:UpdateEventSourceMapping", "lambda:DeleteEventSourceMapping"],
+      "Resource": "arn:aws:lambda:@REGION@:@ACCOUNT@:event-source-mapping:*",
+      "Condition": {
+        "ArnEquals": {
+          "lambda:FunctionArn": "arn:aws:lambda:@REGION@:@ACCOUNT@:function:@APPLICATION@-photo-worker"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["lambda:TagResource", "lambda:UntagResource"],
+      "Resource": "arn:aws:lambda:@REGION@:@ACCOUNT@:event-source-mapping:*",
+      "Condition": {
+        "StringEquals": {"aws:ResourceTag/Project": "@APPLICATION@"}
+      }
     },
     {
       "Effect": "Allow",

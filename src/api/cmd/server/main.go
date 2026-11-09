@@ -15,9 +15,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/awslabs/aws-lambda-go-api-proxy/httpadapter"
+	"github.com/imkln/portfolio/src/internal/photos"
 	"github.com/imkln/portfolio/src/api/internal/auth"
 	"github.com/imkln/portfolio/src/api/internal/collections"
-	"github.com/imkln/portfolio/src/api/internal/photos"
 	"github.com/imkln/portfolio/src/api/internal/server"
 )
 

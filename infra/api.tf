@@ -29,7 +29,7 @@ resource "aws_iam_role_policy" "api" {
       },
       {
         Effect   = "Allow"
-        Action   = ["dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem"]
+        Action   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
         Resource = aws_dynamodb_table.photos.arn
       },
       {
@@ -62,8 +62,8 @@ resource "aws_lambda_function" "api" {
   runtime          = "provided.al2023"
   handler          = "bootstrap"
   architectures    = ["arm64"]
-  filename         = "${path.module}/../build/lambda.zip"
-  source_code_hash = filebase64sha256("${path.module}/../build/lambda.zip")
+  filename         = "${path.module}/../build/api.zip"
+  source_code_hash = filebase64sha256("${path.module}/../build/api.zip")
   timeout          = 10
   memory_size      = 256
 

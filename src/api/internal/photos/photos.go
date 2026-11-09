@@ -9,48 +9,32 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"time"
 	"unicode"
+
+	photostore "github.com/imkln/portfolio/src/internal/photos"
 )
 
 const (
 	pageSize         = 24
-	jpegType         = "image/jpeg"
-	maxUploadBytes   = 64 << 20
 	maxUploadRequest = 4 << 10
-	uploadTimeLayout = "2006-01-02T15:04:05.000000000Z"
 )
 
-var (
-	photoID          = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
-	invalidPageToken = errors.New("invalid page token")
-)
-
-type Photo struct {
-	ID         string    `json:"id"`
-	Name       string    `json:"name"`
-	UploadedAt time.Time `json:"uploadedAt"`
-}
+var errInvalidPageToken = errors.New("invalid page token")
 
 type Store interface {
-	ListReady(ctx context.Context, after string, limit int32) ([]Photo, string, error)
+	ListReady(ctx context.Context, after string, limit int32) ([]photostore.Photo, string, error)
 	IsReady(ctx context.Context, id string) (bool, error)
 	BeginDelete(ctx context.Context, id string) (bool, error)
 	FinishDelete(ctx context.Context, id string) error
 }
 
 type FileStore interface {
-	SignUpload(ctx context.Context, name string, size int64) (UploadForm, error)
+	SignUpload(ctx context.Context, name string, size int64) (photostore.UploadForm, error)
 	OriginalURL(ctx context.Context, id string) (string, error)
 	ThumbnailURL(ctx context.Context, id string) (string, error)
 	DeletePhoto(ctx context.Context, id string) error
-}
-
-type UploadForm struct {
-	URL    string            `json:"url"`
-	Fields map[string]string `json:"fields"`
 }
 
 type uploadRequest struct {
@@ -60,8 +44,8 @@ type uploadRequest struct {
 }
 
 type page struct {
-	Photos        []Photo `json:"photos"`
-	NextPageToken string  `json:"nextPageToken,omitempty"`
+	Photos        []photostore.Photo `json:"photos"`
+	NextPageToken string             `json:"nextPageToken,omitempty"`
 }
 
 type handler struct {
@@ -111,7 +95,7 @@ func (app *handler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if items == nil {
-		items = []Photo{}
+		items = []photostore.Photo{}
 	}
 
 	writeJSON(w, http.StatusOK, page{
@@ -145,7 +129,7 @@ func (app *handler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (file uploadRequest) valid() bool {
-	return file.ContentType == jpegType && file.Size > 0 && file.Size <= maxUploadBytes &&
+	return file.ContentType == photostore.JPEGType && file.Size > 0 && file.Size <= photostore.MaxUploadBytes &&
 		len(file.Name) <= 255 && strings.TrimSpace(file.Name) != "" &&
 		!strings.ContainsAny(file.Name, "/\\") && strings.IndexFunc(file.Name, unicode.IsControl) < 0
 }
@@ -158,7 +142,7 @@ func (app *handler) get(readURL func(context.Context, string) (string, error)) h
 		}
 
 		id := r.PathValue("id")
-		if !photoID.MatchString(id) {
+		if !photostore.ValidID(id) {
 			writeError(w, http.StatusNotFound)
 			return
 		}
@@ -192,7 +176,7 @@ func (app *handler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := r.PathValue("id")
-	if !photoID.MatchString(id) {
+	if !photostore.ValidID(id) {
 		writeError(w, http.StatusNotFound)
 		return
 	}
@@ -224,21 +208,21 @@ func (app *handler) delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func readPageToken(token string) (string, error) {
-	if len(token) > base64.RawURLEncoding.EncodedLen(len(uploadTimeLayout)+1+128) {
-		return "", invalidPageToken
+	if len(token) > base64.RawURLEncoding.EncodedLen(len(photostore.UploadTimeLayout)+1+128) {
+		return "", errInvalidPageToken
 	}
 
 	key, err := base64.RawURLEncoding.Strict().DecodeString(token)
 	if err != nil {
-		return "", invalidPageToken
+		return "", errInvalidPageToken
 	}
 
 	stamp, id, ok := strings.Cut(string(key), "#")
-	if !ok || len(stamp) != len(uploadTimeLayout) || !photoID.MatchString(id) {
-		return "", invalidPageToken
+	if !ok || len(stamp) != len(photostore.UploadTimeLayout) || !photostore.ValidID(id) {
+		return "", errInvalidPageToken
 	}
-	if _, err := time.Parse(uploadTimeLayout, stamp); err != nil {
-		return "", invalidPageToken
+	if _, err := time.Parse(photostore.UploadTimeLayout, stamp); err != nil {
+		return "", errInvalidPageToken
 	}
 	return string(key), nil
 }

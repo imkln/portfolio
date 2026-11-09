@@ -22,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/imkln/portfolio/src/api/internal/photos"
 	"github.com/imkln/portfolio/src/api/internal/testutils"
+	photostore "github.com/imkln/portfolio/src/internal/photos"
 )
 
 const (
@@ -308,7 +309,7 @@ func photo(id, state string, uploadedAt time.Time) photoItem {
 func newLibrary(t *testing.T, items ...photoItem) *testutils.Auth {
 	t.Helper()
 	fixture := testutils.NewAuth(t, testutils.OwnerEmail)
-	photos.Register(fixture.Mux, photos.NewDynamoStore(&photoTable{items}, "test-photos"), fileLibrary(nil), fixture.Sessions.IsOwner)
+	photos.Register(fixture.Mux, photostore.NewDynamoStore(&photoTable{items}, "test-photos"), fileLibrary(nil), fixture.Sessions.IsOwner)
 	return fixture
 }
 
@@ -387,20 +388,19 @@ func (table *photoTable) GetItem(_ context.Context, input *dynamodb.GetItemInput
 func (table *photoTable) UpdateItem(_ context.Context, input *dynamodb.UpdateItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
 	id := input.Key["id"].(*types.AttributeValueMemberS).Value
 	for i, item := range table.items {
-		if item.id == id && item.state == "ready" {
+		if item.id != id {
+			continue
+		}
+		if item.state == "ready" && input.ExpressionAttributeValues[":deleting"] != nil {
 			table.items[i].state = "deleting"
+			return &dynamodb.UpdateItemOutput{}, nil
+		}
+		if item.state == "deleting" && input.ExpressionAttributeValues[":deleted"] != nil {
+			table.items[i] = photoItem{id: id, state: "deleted"}
 			return &dynamodb.UpdateItemOutput{}, nil
 		}
 	}
 	return nil, &types.ConditionalCheckFailedException{}
-}
-
-func (table *photoTable) DeleteItem(_ context.Context, input *dynamodb.DeleteItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
-	id := input.Key["id"].(*types.AttributeValueMemberS).Value
-	table.items = slices.DeleteFunc(table.items, func(item photoItem) bool {
-		return item.id == id
-	})
-	return &dynamodb.DeleteItemOutput{}, nil
 }
 
 func checkPhotoNotFound(t *testing.T, response *httptest.ResponseRecorder) {
@@ -422,7 +422,7 @@ func newFileLibrary(t *testing.T, items ...photoItem) (*testutils.Auth, fileLibr
 
 	fixture := testutils.NewAuth(t, testutils.OwnerEmail)
 	table := &photoTable{items: items}
-	store := photos.NewDynamoStore(table, "test-photos")
+	store := photostore.NewDynamoStore(table, "test-photos")
 	files := fileLibrary{}
 	if len(items) > 0 {
 		files[originalKey] = fileOrigin + originalKey
@@ -435,8 +435,8 @@ func newFileLibrary(t *testing.T, items ...photoItem) (*testutils.Auth, fileLibr
 
 type fileLibrary map[string]string
 
-func (files fileLibrary) SignUpload(context.Context, string, int64) (photos.UploadForm, error) {
-	return photos.UploadForm{}, errors.New("unexpected upload")
+func (files fileLibrary) SignUpload(context.Context, string, int64) (photostore.UploadForm, error) {
+	return photostore.UploadForm{}, errors.New("unexpected upload")
 }
 
 func (files fileLibrary) OriginalURL(_ context.Context, id string) (string, error) {
@@ -480,7 +480,7 @@ func newUploadLibrary(t *testing.T) *testutils.Auth {
 		Region:      "us-east-1",
 		Credentials: aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider("test", "test", "")),
 	})
-	uploads := photos.NewS3Store(client, "test-photos")
+	uploads := photostore.NewS3Store(client, "test-photos")
 	photos.Register(fixture.Mux, nil, uploads, fixture.Sessions.IsOwner)
 	return fixture
 }

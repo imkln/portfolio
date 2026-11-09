@@ -1,11 +1,15 @@
 package photos
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"io"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -16,9 +20,15 @@ const (
 	uploadExpires  = 10 * time.Minute
 	readExpires    = 5 * time.Minute
 	photoNameField = "x-amz-meta-photo-name"
+	uploads        = "uploads/"
 	originals      = "originals/"
 	thumbnails     = "thumbnails/"
 )
+
+type UploadForm struct {
+	URL    string            `json:"url"`
+	Fields map[string]string `json:"fields"`
+}
 
 type s3Store struct {
 	client *s3.Client
@@ -31,7 +41,7 @@ func NewS3Store(client *s3.Client, bucket string) *s3Store {
 }
 
 func (store *s3Store) SignUpload(ctx context.Context, name string, size int64) (UploadForm, error) {
-	key := "uploads/" + rand.Text() + ".jpg"
+	key := fileKey(uploads, rand.Text())
 	// Keep the signed S3 metadata field ASCII, even for non-ASCII filenames.
 	encodedName := base64.RawURLEncoding.EncodeToString([]byte(name))
 
@@ -41,7 +51,7 @@ func (store *s3Store) SignUpload(ctx context.Context, name string, size int64) (
 	}, func(options *s3.PresignPostOptions) {
 		options.Expires = uploadExpires
 		options.Conditions = []any{
-			map[string]string{"Content-Type": jpegType},
+			map[string]string{"Content-Type": JPEGType},
 			map[string]string{photoNameField: encodedName},
 			[]any{"content-length-range", size, size},
 		}
@@ -50,7 +60,7 @@ func (store *s3Store) SignUpload(ctx context.Context, name string, size int64) (
 		return UploadForm{}, err
 	}
 
-	form.Values["Content-Type"] = jpegType
+	form.Values["Content-Type"] = JPEGType
 	form.Values[photoNameField] = encodedName
 	return UploadForm{URL: form.URL, Fields: form.Values}, nil
 }
@@ -94,6 +104,56 @@ func (store *s3Store) DeletePhoto(ctx context.Context, id string) error {
 	return nil
 }
 
+func (store *s3Store) ReadUpload(ctx context.Context, key string) (string, []byte, error) {
+	result, err := store.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(store.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return "", nil, fmt.Errorf("read uploaded JPEG: %w", err)
+	}
+	defer result.Body.Close()
+
+	name, err := base64.RawURLEncoding.DecodeString(result.Metadata["photo-name"])
+	if err != nil || len(name) == 0 || !utf8.Valid(name) {
+		return "", nil, ErrInvalidUpload
+	}
+	data, err := io.ReadAll(io.LimitReader(result.Body, MaxUploadBytes+1))
+	if err != nil {
+		return "", nil, fmt.Errorf("read uploaded JPEG body: %w", err)
+	}
+	if len(data) > MaxUploadBytes {
+		return "", nil, ErrInvalidUpload
+	}
+	return string(name), data, nil
+}
+
+func (store *s3Store) SavePhoto(ctx context.Context, id string, original, thumbnail []byte) error {
+	if err := store.putJPEG(ctx, fileKey(originals, id), original); err != nil {
+		return fmt.Errorf("save original: %w", err)
+	}
+	if err := store.putJPEG(ctx, fileKey(thumbnails, id), thumbnail); err != nil {
+		return fmt.Errorf("save thumbnail: %w", err)
+	}
+	return nil
+}
+
+func (store *s3Store) putJPEG(ctx context.Context, key string, data []byte) error {
+	_, err := store.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      aws.String(store.bucket),
+		Key:         aws.String(key),
+		Body:        bytes.NewReader(data),
+		ContentType: aws.String(JPEGType),
+	})
+	return err
+}
+
 func fileKey(prefix, id string) string {
 	return prefix + id + ".jpg"
+}
+
+func UploadID(key string) (string, bool) {
+	name, inUploads := strings.CutPrefix(key, uploads)
+	id, isJPEG := strings.CutSuffix(name, ".jpg")
+	return id, inUploads && isJPEG && ValidID(id)
 }

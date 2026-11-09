@@ -13,14 +13,14 @@ import (
 
 const (
 	readyState    = "ready"
-	deletingState = "deleting"
+	DeletingState = "deleting"
+	DeletedState  = "deleted"
 )
 
 type dynamoClient interface {
 	Query(context.Context, *dynamodb.QueryInput, ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
 	GetItem(context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
 	UpdateItem(context.Context, *dynamodb.UpdateItemInput, ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
-	DeleteItem(context.Context, *dynamodb.DeleteItemInput, ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
 }
 
 type dynamoStore struct {
@@ -88,6 +88,11 @@ func (store *dynamoStore) ListReady(ctx context.Context, after string, limit int
 }
 
 func (store *dynamoStore) IsReady(ctx context.Context, id string) (bool, error) {
+	state, err := store.PhotoState(ctx, id)
+	return state == readyState, err
+}
+
+func (store *dynamoStore) PhotoState(ctx context.Context, id string) (string, error) {
 	result, err := store.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName:            aws.String(store.table),
 		Key:                  photoKey(id),
@@ -98,11 +103,14 @@ func (store *dynamoStore) IsReady(ctx context.Context, id string) (bool, error) 
 		},
 	})
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
 	state, ok := result.Item["state"].(*types.AttributeValueMemberS)
-	return ok && state.Value == readyState, nil
+	if !ok {
+		return "", nil
+	}
+	return state.Value, nil
 }
 
 func (store *dynamoStore) BeginDelete(ctx context.Context, id string) (bool, error) {
@@ -116,29 +124,55 @@ func (store *dynamoStore) BeginDelete(ctx context.Context, id string) (bool, err
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":ready":    &types.AttributeValueMemberS{Value: readyState},
-			":deleting": &types.AttributeValueMemberS{Value: deletingState},
+			":deleting": &types.AttributeValueMemberS{Value: DeletingState},
 		},
 	})
-	var notReady *types.ConditionalCheckFailedException
-	if errors.As(err, &notReady) {
+	if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
 		return false, nil
 	}
 	return err == nil, err
 }
 
 func (store *dynamoStore) FinishDelete(ctx context.Context, id string) error {
-	_, err := store.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+	_, err := store.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName:           aws.String(store.table),
 		Key:                 photoKey(id),
 		ConditionExpression: aws.String("#state = :deleting"),
+		UpdateExpression:    aws.String("SET #state = :deleted REMOVE #name, uploadedAt, uploadKey"),
 		ExpressionAttributeNames: map[string]string{
 			"#state": "state",
+			"#name":  "name",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":deleting": &types.AttributeValueMemberS{Value: deletingState},
+			":deleting": &types.AttributeValueMemberS{Value: DeletingState},
+			":deleted":  &types.AttributeValueMemberS{Value: DeletedState},
 		},
 	})
 	return err
+}
+
+func (store *dynamoStore) SaveReady(ctx context.Context, photo Photo) (bool, error) {
+	uploadedAt := photo.UploadedAt.UTC()
+	_, err := store.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName:           aws.String(store.table),
+		Key:                 photoKey(photo.ID),
+		ConditionExpression: aws.String("attribute_not_exists(id)"),
+		UpdateExpression:    aws.String("SET #state = :ready, #name = :name, uploadedAt = :time, uploadKey = :key"),
+		ExpressionAttributeNames: map[string]string{
+			"#state": "state",
+			"#name":  "name",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":ready": &types.AttributeValueMemberS{Value: readyState},
+			":name":  &types.AttributeValueMemberS{Value: photo.Name},
+			":time":  &types.AttributeValueMemberS{Value: uploadedAt.Format(time.RFC3339Nano)},
+			":key":   &types.AttributeValueMemberS{Value: uploadedAt.Format(UploadTimeLayout) + "#" + photo.ID},
+		},
+	})
+	if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func photoKey(id string) map[string]types.AttributeValue {
