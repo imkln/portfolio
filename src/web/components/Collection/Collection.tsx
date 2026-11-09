@@ -8,6 +8,7 @@ export type Transform = 'move' | 'resize';
 
 type Props = {
   collection: CollectionData;
+  rowIndex?: number;
   editing: boolean;
   selected: boolean;
   onOpen: (event: MouseEvent<HTMLAnchorElement>) => void;
@@ -19,6 +20,7 @@ type Props = {
 
 export default function Collection({
   collection,
+  rowIndex,
   editing,
   selected,
   onOpen,
@@ -29,7 +31,12 @@ export default function Collection({
 }: Props) {
   const { id, title, metadata, coverPhotoId, x, y, width } = collection;
   const displayTitle = title || 'Untitled collection';
-  const layout = { '--x': x, '--y': y, '--width': width } as CSSProperties;
+  const layout = {
+    '--x': x,
+    '--y': y,
+    '--width': width,
+    '--row-index': rowIndex,
+  } as CSSProperties;
 
   return (
     <article

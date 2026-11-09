@@ -43,6 +43,7 @@
 
 .selected .cover-control:active {
   cursor: grabbing;
+  scale: none;
 }
 
 .delete-collection {

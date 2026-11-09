@@ -4,26 +4,28 @@
 
 .board-toolbar {
   position: fixed;
-  right: var(--page-gutter);
   bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface);
+  gap: 8px;
+  padding: 2px 4px;
+  border-radius: 5px;
+  background: var(--background);
+  white-space: nowrap;
+}
+
+.board-toolbar button {
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
 }
 
 .board-toolbar ~ .collection-board {
   margin-bottom: 16px;
-}
-
-.save-board {
-  background: var(--text);
-  border-color: var(--text);
-  color: var(--background);
 }
 
 .collection-board {
@@ -42,6 +44,13 @@
 
 .collection-board.compact {
   gap: 30px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .collection-board.compact > .collection {
+    animation: enter-row var(--entrance-duration) ease-out backwards;
+    animation-delay: calc(var(--row-stagger) * min(var(--row-index), 8));
+  }
 }
 
 .board-controls {

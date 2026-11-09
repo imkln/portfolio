@@ -205,7 +205,7 @@ export default function CollectionBoard({
               )}
             </button>
             {editing && (
-              <button type="button" className="save-board" onClick={save}>
+              <button type="button" onClick={save}>
                 {saving ? 'Saving…' : 'Save'}
               </button>
             )}
@@ -228,10 +228,11 @@ export default function CollectionBoard({
           {items.length === 0 && (
             <p className="empty-board">No collections yet.</p>
           )}
-          {items.map((item) => (
+          {items.map((item, index) => (
             <CollectionItem
               key={item.id}
               collection={item}
+              rowIndex={compact ? index : undefined}
               editing={editing}
               selected={editing && item.id === selectedId}
               onOpen={onOpen}
