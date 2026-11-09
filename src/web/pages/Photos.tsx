@@ -7,11 +7,22 @@ import usePhotoLibrary from '../hooks/usePhotoLibrary';
 import './Photos.css';
 
 export default function Photos() {
-  const { photos, hasMore, nextPage, upload, uploadError, remove } =
-    usePhotoLibrary();
+  const {
+    photos,
+    hasMore,
+    nextPage,
+    loading,
+    loadError,
+    upload,
+    uploading,
+    uploadError,
+    remove,
+  } = usePhotoLibrary();
   const [viewing, setViewing] = useState<Photo | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(false);
   const anchor = useRef<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const confirmation = useRef<HTMLDialogElement>(null);
@@ -47,19 +58,28 @@ export default function Photos() {
     setSelected(new Set());
   }
 
-  function deletePhotos() {
+  async function deletePhotos() {
     confirmation.current?.close();
+    setDeleting(true);
+    setDeleteError(false);
 
-    remove(selected);
-    clearSelection();
-    modeButton.current?.focus();
+    const failed = await remove(selected);
+    anchor.current = null;
+    setSelected(failed);
+    setDeleteError(failed.size > 0);
+    setDeleting(false);
+    window.requestAnimationFrame(() => modeButton.current?.focus());
   }
 
   return (
     <main className="photos-page">
       <ActionBar>
         {!selecting && (
-          <button type="button" onClick={() => input.current?.click()}>
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={() => input.current?.click()}
+          >
             <span aria-hidden="true">+ </span>Upload photos
           </button>
         )}
@@ -70,7 +90,7 @@ export default function Photos() {
             </p>
             <button
               type="button"
-              disabled={selected.size === 0}
+              disabled={deleting || selected.size === 0}
               onClick={() => confirmation.current?.showModal()}
             >
               Delete
@@ -81,9 +101,12 @@ export default function Photos() {
           key="selection-mode"
           ref={modeButton}
           type="button"
-          disabled={!selecting && photos.length === 0}
+          disabled={deleting || (!selecting && photos.length === 0)}
           onClick={() => {
-            if (selecting) clearSelection();
+            if (selecting) {
+              clearSelection();
+              setDeleteError(false);
+            }
             setSelecting(!selecting);
           }}
         >
@@ -94,25 +117,33 @@ export default function Photos() {
       <input
         ref={input}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,.jpg,.jpeg"
         multiple
         hidden
         onChange={(event) => {
           const { files } = event.currentTarget;
-          if (files?.length) upload(files);
+          if (files?.length) void upload(files);
           event.currentTarget.value = '';
         }}
       />
 
-      {uploadError && <p role="alert">Choose image files to upload.</p>}
+      {loading && <p role="status">Loading photos…</p>}
+      {uploading && <p role="status">Uploading photos…</p>}
+      {loadError && <p role="alert">Could not load photos.</p>}
+      {uploadError && <p role="alert">{uploadError}</p>}
+      {deleteError && <p role="alert">Some photos could not be deleted.</p>}
 
-      <PhotoGrid
-        photos={photos}
-        selected={selecting ? selected : null}
-        onActivate={(photo, shift) =>
-          selecting ? toggle(photo, shift) : setViewing(photo)
-        }
-      />
+      {!loading && (!loadError || photos.length > 0) && (
+        <PhotoGrid
+          photos={photos}
+          selected={selecting ? selected : null}
+          onActivate={(photo, shift) => {
+            if (deleting) return;
+            if (selecting) toggle(photo, shift);
+            else setViewing(photo);
+          }}
+        />
+      )}
       {hasMore && <div ref={nextPage} className="photo-page-end" />}
 
       {viewing && (
@@ -137,7 +168,7 @@ export default function Photos() {
           <button type="button" onClick={() => confirmation.current?.close()}>
             Cancel
           </button>
-          <button type="button" onClick={deletePhotos}>
+          <button type="button" onClick={() => void deletePhotos()}>
             Delete
           </button>
         </div>

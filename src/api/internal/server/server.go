@@ -62,6 +62,7 @@ func New(
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", page)
+	mux.HandleFunc("GET /photos", page)
 	mux.HandleFunc("GET /collections/{id}", page)
 	mux.Handle("GET /assets/", http.FileServerFS(assets))
 	sessions.Register(mux)

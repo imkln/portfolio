@@ -1,73 +1,127 @@
 import { useEffect, useRef, useState } from 'react';
-import { samplePhotos } from '../testutils/samplePhotos';
-
-const pageSize = 24;
+import type { Photo } from '../data/Photo';
+import {
+  deletePhoto,
+  listPhotos,
+  uploadPhoto,
+} from '../data/photosApi';
 
 export default function usePhotoLibrary() {
-  const [photos, setPhotos] = useState(samplePhotos);
-  const [limit, setLimit] = useState(pageSize);
-  const [uploadError, setUploadError] = useState(false);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [pageToken, setPageToken] = useState<string>();
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
   const nextPage = useRef<HTMLDivElement>(null);
-  const uploads = useRef(new Map<string, string>());
-  const hasMore = limit < photos.length;
+  const requests = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    requests.current = controller;
+    const { signal } = controller;
+
+    async function load() {
+      try {
+        const page = await listPhotos(signal);
+        if (signal.aborted) return;
+
+        setPhotos(page.photos);
+        setPageToken(page.nextPageToken);
+      } catch {
+        if (!signal.aborted) setLoadError(true);
+      } finally {
+        if (!signal.aborted) setLoading(false);
+      }
+    }
+
+    void load();
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const end = nextPage.current;
-    if (!end) return;
+    const signal = requests.current?.signal;
+    if (!end || !signal || !pageToken || loadError) return;
 
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        observer.disconnect();
-        setLimit((current) => current + pageSize);
-      }
+      if (!entry.isIntersecting) return;
+
+      observer.disconnect();
+      void listPhotos(signal, pageToken).then(
+        (page) => {
+          if (signal.aborted) return;
+
+          setPhotos((current) => [...current, ...page.photos]);
+          setPageToken(page.nextPageToken);
+        },
+        () => {
+          if (!signal.aborted) setLoadError(true);
+        },
+      );
     });
     observer.observe(end);
 
     return () => observer.disconnect();
-  }, [hasMore, limit]);
+  }, [loadError, pageToken]);
 
-  useEffect(() => {
-    const urls = uploads.current;
+  async function upload(files: FileList) {
+    const signal = requests.current?.signal;
+    if (!signal || signal.aborted || uploading) return;
 
-    return () => {
-      for (const url of urls.values()) URL.revokeObjectURL(url);
-      urls.clear();
-    };
-  }, []);
-
-  function upload(files: FileList) {
-    const images = Array.from(files).filter((file) =>
-      file.type.startsWith('image/'),
+    const selected = Array.from(files);
+    const jpegs = selected.filter(
+      (file) => file.type === 'image/jpeg' || (!file.type && /\.jpe?g$/i.test(file.name)),
     );
-    setUploadError(images.length !== files.length);
-
-    const added = images.map((file) => {
-      const id = crypto.randomUUID();
-      const url = URL.createObjectURL(file);
-      uploads.current.set(id, url);
-
-      return { id, name: file.name, thumbnail: url, original: url };
-    });
-
-    setPhotos((current) => [...added, ...current]);
-    setLimit((current) => current + added.length);
-  }
-
-  function remove(ids: ReadonlySet<string>) {
-    for (const id of ids) {
-      const url = uploads.current.get(id);
-      if (url) URL.revokeObjectURL(url);
-      uploads.current.delete(id);
+    setUploadError('');
+    if (!jpegs.length) {
+      setUploadError('Choose JPEG photos to upload.');
+      return;
     }
 
-    setPhotos((current) => current.filter(({ id }) => !ids.has(id)));
+    setUploading(true);
+    let failed = selected.length - jpegs.length;
+
+    for (const file of jpegs) {
+      if (signal.aborted) return;
+      try {
+        await uploadPhoto(file, signal);
+      } catch {
+        failed++;
+      }
+    }
+    if (signal.aborted) return;
+
+    if (failed > 0) setUploadError('Some photos could not be uploaded.');
+    setUploading(false);
+  }
+
+  async function remove(ids: ReadonlySet<string>) {
+    const signal = requests.current?.signal;
+    const failed = new Set(ids);
+    if (!signal) return failed;
+
+    for (const id of ids) {
+      if (signal.aborted) break;
+      try {
+        await deletePhoto(id, signal);
+        failed.delete(id);
+        setPhotos((current) => current.filter((photo) => photo.id !== id));
+      } catch {
+        // Leave photos selected when the API could not delete them.
+      }
+    }
+    return failed;
   }
 
   return {
-    photos: photos.slice(0, limit),
-    hasMore,
+    photos,
+    hasMore: Boolean(pageToken) && !loadError,
     nextPage,
+    loading,
+    loadError,
     upload,
+    uploading,
     uploadError,
     remove,
   };

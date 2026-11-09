@@ -1,4 +1,4 @@
-import type { Photo } from '../data/Photo';
+import type { Photo } from '../data/Photo.ts';
 
 const palettes = [
   ['#e6ad94', '#547783', '#586969', '#273b42'],
@@ -24,6 +24,7 @@ function landscape(index: number, width: number) {
 export const samplePhotos: Photo[] = Array.from({ length: 48 }, (_, index) => ({
   id: `sample-${index + 1}`,
   name: `Photo ${index + 1}`,
+  uploadedAt: new Date(Date.UTC(2026, 0, 1) - index * 1000).toISOString(),
   thumbnail: landscape(index, 360),
   original: landscape(index, 1200),
 }));

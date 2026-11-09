@@ -20,6 +20,9 @@ export default function PhotoViewer({ name, original, onClose }: Props) {
       className="photo-viewer"
       aria-label="Photo viewer"
       onClose={onClose}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) event.currentTarget.close();
+      }}
     >
       <button
         type="button"

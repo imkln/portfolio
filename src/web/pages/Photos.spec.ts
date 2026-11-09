@@ -1,18 +1,57 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { mockApi } from '../testutils/fakeApi';
+import { createPhotoApi, isPhotoRequest } from '../testutils/photoApi';
 
 function photo(page: Page, name: string) {
   return page.getByRole('button', { name, exact: true });
 }
 
+async function mockPhotos(page: Page) {
+  const api = createPhotoApi();
+  await page.route((url) => isPhotoRequest(url.pathname), async (route) => {
+    const request = route.request();
+    const body = request.postDataBuffer();
+    const response = await api.handle(new Request(request.url(), {
+      method: request.method(),
+      headers: request.headers(),
+      body: body ? new Uint8Array(body) : undefined,
+    }));
+    await route.fulfill({
+      status: response.status,
+      headers: Object.fromEntries(response.headers),
+      body: Buffer.from(await response.arrayBuffer()),
+    });
+  });
+  return api;
+}
+
 async function openPhotos(page: Page) {
   await mockApi(page, { owner: true });
+  const api = await mockPhotos(page);
   await page.goto('/photos');
+  return api;
+}
+
+async function uploadPhotos(page: Page, ...names: string[]) {
+  const jpeg = await page.evaluate(() =>
+    document.createElement('canvas').toDataURL('image/jpeg').split(',')[1],
+  );
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('button', { name: 'Upload photos' }).click(),
+  ]);
+
+  await chooser.setFiles(names.map((name) => ({
+    name,
+    mimeType: 'image/jpeg',
+    buffer: Buffer.from(jpeg, 'base64'),
+  })));
 }
 
 test('can open Photos from the header', async ({ page }) => {
   await mockApi(page, { owner: true });
+  await mockPhotos(page);
   await page.goto('/');
 
   const navigation = page.getByRole('banner').getByRole('navigation');
@@ -33,23 +72,16 @@ test('should hide Photos from non-owners', async ({ page }) => {
 });
 
 test('can upload several photos at once', async ({ page }) => {
-  await openPhotos(page);
+  const api = await openPhotos(page);
 
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: 'Upload photos' }).click(),
-  ]);
-  const image = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==',
-    'base64',
-  );
-  await chooser.setFiles([
-    { name: 'Trail.png', mimeType: 'image/png', buffer: image },
-    { name: 'Shore.png', mimeType: 'image/png', buffer: image },
-  ]);
+  await uploadPhotos(page, 'Trail.jpg', 'Shore.jpg');
 
-  await expect(photo(page, 'Trail.png')).toBeVisible();
-  await expect(photo(page, 'Shore.png')).toBeVisible();
+  await expect.poll(() => api.received).toEqual(['Trail.jpg', 'Shore.jpg']);
+  await expect(page.getByRole('button', { name: 'Upload photos' })).toBeEnabled();
+  await page.reload();
+
+  await expect(photo(page, 'Trail.jpg')).toBeVisible();
+  await expect(photo(page, 'Shore.jpg')).toBeVisible();
 });
 
 test('can load more photos by scrolling', async ({ page }) => {
