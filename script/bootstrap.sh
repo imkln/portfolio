@@ -110,7 +110,7 @@ runtime=$(render_policy <<'POLICY'
       ],
       "Resource": [
         "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-api:log-stream:*",
-        "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-photo-worker:log-stream:*"
+        "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-worker:log-stream:*"
       ]
     }
   ]
@@ -184,7 +184,7 @@ deploy_policy=$(render_policy <<'POLICY'
       ],
       "Resource": [
         "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-api",
-        "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-photo-worker"
+        "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-worker"
       ],
       "Condition": {
         "StringEquals": {
@@ -209,7 +209,7 @@ deploy_policy=$(render_policy <<'POLICY'
       ],
       "Resource": [
         "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-api",
-        "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-photo-worker"
+        "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-worker"
       ]
     },
     {
@@ -219,7 +219,7 @@ deploy_policy=$(render_policy <<'POLICY'
       ],
       "Resource": [
         "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-api",
-        "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-photo-worker"
+        "arn:aws:iam::@ACCOUNT@:role/@APPLICATION@-worker"
       ],
       "Condition": {
         "StringEquals": {
@@ -246,7 +246,7 @@ deploy_policy=$(render_policy <<'POLICY'
       ],
       "Resource": [
         "arn:aws:lambda:@REGION@:@ACCOUNT@:function:@APPLICATION@-api",
-        "arn:aws:lambda:@REGION@:@ACCOUNT@:function:@APPLICATION@-photo-worker"
+        "arn:aws:lambda:@REGION@:@ACCOUNT@:function:@APPLICATION@-worker"
       ]
     },
     {
@@ -270,8 +270,8 @@ deploy_policy=$(render_policy <<'POLICY'
       "Resource": [
         "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-api",
         "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-api:*",
-        "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-photo-worker",
-        "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-photo-worker:*"
+        "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-worker",
+        "arn:aws:logs:@REGION@:@ACCOUNT@:log-group:/aws/lambda/@APPLICATION@-worker:*"
       ]
     },
     {
@@ -336,7 +336,7 @@ deploy_policy=$(render_policy <<'POLICY'
       "Resource": "*",
       "Condition": {
         "ArnEquals": {
-          "lambda:FunctionArn": "arn:aws:lambda:@REGION@:@ACCOUNT@:function:@APPLICATION@-photo-worker"
+          "lambda:FunctionArn": "arn:aws:lambda:@REGION@:@ACCOUNT@:function:@APPLICATION@-worker"
         }
       }
     },
@@ -351,7 +351,7 @@ deploy_policy=$(render_policy <<'POLICY'
       "Resource": "arn:aws:lambda:@REGION@:@ACCOUNT@:event-source-mapping:*",
       "Condition": {
         "ArnEquals": {
-          "lambda:FunctionArn": "arn:aws:lambda:@REGION@:@ACCOUNT@:function:@APPLICATION@-photo-worker"
+          "lambda:FunctionArn": "arn:aws:lambda:@REGION@:@ACCOUNT@:function:@APPLICATION@-worker"
         }
       }
     },

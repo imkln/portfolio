@@ -1,13 +1,13 @@
-data "aws_caller_identity" "photo_worker" {}
+data "aws_caller_identity" "worker" {}
 
 locals {
-  photo_worker_timeout = 45
+  worker_timeout = 45
 }
 
 resource "aws_sqs_queue" "photo_uploads" {
   name                       = "${var.application_name}-photo-uploads"
   sqs_managed_sse_enabled    = true
-  visibility_timeout_seconds = 6 * local.photo_worker_timeout
+  visibility_timeout_seconds = 6 * local.worker_timeout
 }
 
 resource "aws_sqs_queue_policy" "photo_uploads" {
@@ -21,7 +21,7 @@ resource "aws_sqs_queue_policy" "photo_uploads" {
       Resource  = aws_sqs_queue.photo_uploads.arn
       Condition = {
         ArnEquals    = { "aws:SourceArn" = aws_s3_bucket.photos.arn }
-        StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.photo_worker.account_id }
+        StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.worker.account_id }
       }
     }]
   })
@@ -39,15 +39,15 @@ resource "aws_s3_bucket_notification" "photo_uploads" {
   depends_on = [aws_sqs_queue_policy.photo_uploads]
 }
 
-resource "aws_iam_role" "photo_worker" {
-  name                 = "${var.application_name}-photo-worker"
+resource "aws_iam_role" "worker" {
+  name                 = "${var.application_name}-worker"
   permissions_boundary = var.runtime_boundary_arn
   assume_role_policy   = aws_iam_role.api.assume_role_policy
 }
 
-resource "aws_iam_role_policy" "photo_worker" {
+resource "aws_iam_role_policy" "worker" {
   name = "${var.application_name}-runtime"
-  role = aws_iam_role.photo_worker.name
+  role = aws_iam_role.worker.name
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -74,26 +74,26 @@ resource "aws_iam_role_policy" "photo_worker" {
       {
         Effect   = "Allow"
         Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
-        Resource = "${aws_cloudwatch_log_group.photo_worker.arn}:log-stream:*"
+        Resource = "${aws_cloudwatch_log_group.worker.arn}:log-stream:*"
       }
     ]
   })
 }
 
-resource "aws_cloudwatch_log_group" "photo_worker" {
-  name              = "/aws/lambda/${var.application_name}-photo-worker"
+resource "aws_cloudwatch_log_group" "worker" {
+  name              = "/aws/lambda/${var.application_name}-worker"
   retention_in_days = 7
 }
 
-resource "aws_lambda_function" "photo_worker" {
-  function_name    = "${var.application_name}-photo-worker"
-  role             = aws_iam_role.photo_worker.arn
+resource "aws_lambda_function" "worker" {
+  function_name    = "${var.application_name}-worker"
+  role             = aws_iam_role.worker.arn
   runtime          = "provided.al2023"
   handler          = "bootstrap"
   architectures    = ["arm64"]
-  filename         = "${path.module}/../build/photo-worker.zip"
-  source_code_hash = filebase64sha256("${path.module}/../build/photo-worker.zip")
-  timeout          = local.photo_worker_timeout
+  filename         = "${path.module}/../build/worker.zip"
+  source_code_hash = filebase64sha256("${path.module}/../build/worker.zip")
+  timeout          = local.worker_timeout
   memory_size      = 1024
 
   environment {
@@ -103,11 +103,11 @@ resource "aws_lambda_function" "photo_worker" {
     }
   }
 
-  depends_on = [aws_iam_role_policy.photo_worker, aws_cloudwatch_log_group.photo_worker]
+  depends_on = [aws_iam_role_policy.worker, aws_cloudwatch_log_group.worker]
 }
 
 resource "aws_lambda_event_source_mapping" "photo_uploads" {
   event_source_arn = aws_sqs_queue.photo_uploads.arn
-  function_name    = aws_lambda_function.photo_worker.arn
+  function_name    = aws_lambda_function.worker.arn
   batch_size       = 1
 }

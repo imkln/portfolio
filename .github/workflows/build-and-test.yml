@@ -55,15 +55,15 @@ jobs:
       - name: Build API binary
         run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -tags lambda.norpc -o build/api ./src/api/cmd/server
 
-      - name: Build photo worker binary
-        run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -tags lambda.norpc -o build/photo-worker ./src/worker
+      - name: Build worker binary
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -tags lambda.norpc -o build/worker ./src/worker
 
       - uses: actions/upload-artifact@v7
         with:
           name: go-binaries
           path: |
             build/api
-            build/photo-worker
+            build/worker
           retention-days: 1
           if-no-files-found: error
 
@@ -106,6 +106,6 @@ jobs:
           name: lambda-packages
           path: |
             build/api.zip
-            build/photo-worker.zip
+            build/worker.zip
           retention-days: 1
           if-no-files-found: error

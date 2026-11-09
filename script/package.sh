@@ -13,6 +13,6 @@ archive="$PWD/build/api.zip"
 mv "$package_dir/api.zip" "$archive"
 
 mkdir "$package_dir/worker"
-install -m 755 build/photo-worker "$package_dir/worker/bootstrap"
-(cd "$package_dir/worker" && zip -q "$package_dir/photo-worker.zip" bootstrap)
-mv "$package_dir/photo-worker.zip" build/photo-worker.zip
+install -m 755 build/worker "$package_dir/worker/bootstrap"
+(cd "$package_dir/worker" && zip -q "$package_dir/worker.zip" bootstrap)
+mv "$package_dir/worker.zip" build/worker.zip
