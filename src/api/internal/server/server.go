@@ -10,11 +10,16 @@ import (
 
 	"github.com/imkln/portfolio/src/api/internal/auth"
 	"github.com/imkln/portfolio/src/api/internal/collections"
+	"github.com/imkln/portfolio/src/api/internal/photos"
 )
 
-func New(ctx context.Context, config auth.Config, assets fs.FS, store collections.Store) (http.Handler, error) {
-	if store == nil {
+func New(ctx context.Context, config auth.Config, assets fs.FS, collectionStore collections.Store, photoStore photos.Store) (http.Handler, error) {
+	if collectionStore == nil {
 		return nil, errors.New("a collections store is required")
+	}
+
+	if photoStore == nil {
+		return nil, errors.New("a photos store is required")
 	}
 
 	index, err := fs.ReadFile(assets, "index.html")
@@ -37,7 +42,9 @@ func New(ctx context.Context, config auth.Config, assets fs.FS, store collection
 	mux.HandleFunc("GET /collections/{id}", page)
 	mux.Handle("GET /assets/", http.FileServerFS(assets))
 	sessions.Register(mux)
-	collections.Register(mux, store, strings.TrimRight(config.Origin, "/"), sessions.IsOwner)
+	collections.Register(mux, collectionStore, strings.TrimRight(config.Origin, "/"), sessions.IsOwner)
+
+	photos.Register(mux, photoStore, sessions.IsOwner)
 
 	return securityHeaders(mux, strings.TrimRight(config.AuthDomain, "/")), nil
 }

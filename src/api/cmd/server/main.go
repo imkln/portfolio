@@ -16,6 +16,7 @@ import (
 	"github.com/awslabs/aws-lambda-go-api-proxy/httpadapter"
 	"github.com/imkln/portfolio/src/api/internal/auth"
 	"github.com/imkln/portfolio/src/api/internal/collections"
+	"github.com/imkln/portfolio/src/api/internal/photos"
 	"github.com/imkln/portfolio/src/api/internal/server"
 )
 
@@ -37,9 +38,15 @@ func main() {
 		CookieKey:    os.Getenv("COOKIE_KEY"),
 	}
 
-	table := os.Getenv("COLLECTIONS_TABLE")
-	if table == "" {
+	collectionsTable := os.Getenv("COLLECTIONS_TABLE")
+	if collectionsTable == "" {
 		slog.Error("COLLECTIONS_TABLE is required")
+		os.Exit(1)
+	}
+
+	photosTable := os.Getenv("PHOTOS_TABLE")
+	if photosTable == "" {
+		slog.Error("PHOTOS_TABLE is required")
 		os.Exit(1)
 	}
 
@@ -51,8 +58,9 @@ func main() {
 	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsConfig)
-	store := collections.NewDynamoStore(dynamoClient, table)
-	handler, err := server.New(ctx, appConfig, os.DirFS(*assets), store)
+	collectionStore := collections.NewDynamoStore(dynamoClient, collectionsTable)
+	photoStore := photos.NewDynamoStore(dynamoClient, photosTable)
+	handler, err := server.New(ctx, appConfig, os.DirFS(*assets), collectionStore, photoStore)
 	if err != nil {
 		slog.Error("startup failed", "error", err)
 		os.Exit(1)

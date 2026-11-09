@@ -24,6 +24,11 @@ resource "aws_iam_role_policy" "api" {
       },
       {
         Effect   = "Allow"
+        Action   = ["dynamodb:Query"]
+        Resource = "${aws_dynamodb_table.photos.arn}/index/photos-by-state"
+      },
+      {
+        Effect   = "Allow"
         Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = "${aws_cloudwatch_log_group.api.arn}:log-stream:*"
       }
@@ -56,6 +61,7 @@ resource "aws_lambda_function" "api" {
       OWNER_EMAIL       = var.owner_email
       COOKIE_KEY        = random_id.cookie_key.hex
       COLLECTIONS_TABLE = aws_dynamodb_table.collections.name
+      PHOTOS_TABLE      = aws_dynamodb_table.photos.name
     }
   }
 
