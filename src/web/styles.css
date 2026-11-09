@@ -71,11 +71,6 @@ button.session-action {
   background: transparent;
 }
 
-.mast a:hover,
-.session-action:hover {
-  color: var(--accent);
-}
-
 h1 {
   margin-left: -0.06em;
   font-size: clamp(42px, 8vw, 94px);
