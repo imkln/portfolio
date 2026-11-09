@@ -87,32 +87,36 @@ export default function App() {
   }
 
   return (
-    <div className="frame">
+    <>
       <header className="mast">
         <a href="/" onClick={navigate}>
-          portfolio
+          imkln's portfolio
         </a>
         {signedIn === false && (
-          <a className="sign-in" href="/auth/login">
+          <a className="session-action" href="/auth/login">
             Sign in
           </a>
         )}
         {signedIn === true && (
           <form action="/auth/logout" method="post">
-            <button type="submit">Sign out</button>
+            <button className="session-action" type="submit">
+              Sign out
+            </button>
           </form>
         )}
       </header>
-      {collection ? (
-        <Collection collection={collection} />
-      ) : (
-        <Home
-          collections={collections}
-          canEdit={signedIn === true}
-          onSave={saveCollections}
-          onOpen={navigate}
-        />
-      )}
-    </div>
+      <div className={collection ? 'frame collection-frame' : 'frame'}>
+        {collection ? (
+          <Collection collection={collection} />
+        ) : (
+          <Home
+            collections={collections}
+            canEdit={signedIn === true}
+            onSave={saveCollections}
+            onOpen={navigate}
+          />
+        )}
+      </div>
+    </>
   );
 }

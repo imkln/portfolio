@@ -17,10 +17,7 @@ export default function Home(props: Props) {
   }
 
   return (
-    <main>
-      <div className="board-heading">
-        <h1>Collections</h1>
-      </div>
+    <main className="board-page">
       {collections === 'error' ? (
         <p role="alert">Could not load collections.</p>
       ) : (

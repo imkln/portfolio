@@ -188,33 +188,29 @@ export default function CollectionBoard({
   }
 
   return (
-    <main onKeyDown={nudge}>
+    <main className="board-page" onKeyDown={nudge}>
       <fieldset className="board-controls" disabled={saving} aria-busy={saving}>
-        <div className="board-heading">
-          <h1>Collections</h1>
-
-          {canEdit && !compact && (
-            <div className="board-toolbar">
-              <button
-                type="button"
-                onClick={editing ? add : () => setDraft(collections)}
-              >
-                {editing ? (
-                  <>
-                    <span aria-hidden="true">+ </span>Add collection
-                  </>
-                ) : (
-                  'Edit collections'
-                )}
-              </button>
-              {editing && (
-                <button type="button" className="save-board" onClick={save}>
-                  {saving ? 'Saving…' : 'Save'}
-                </button>
+        {canEdit && !compact && (
+          <div className="board-toolbar">
+            <button
+              type="button"
+              onClick={editing ? add : () => setDraft(collections)}
+            >
+              {editing ? (
+                <>
+                  <span aria-hidden="true">+ </span>Add collection
+                </>
+              ) : (
+                'Edit collections'
               )}
-            </div>
-          )}
-        </div>
+            </button>
+            {editing && (
+              <button type="button" className="save-board" onClick={save}>
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            )}
+          </div>
+        )}
 
         {editing && saveError && (
           <p className="save-error" role="alert">
