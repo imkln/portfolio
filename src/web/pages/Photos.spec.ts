@@ -1,29 +1,9 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { mockApi } from '../testutils/fakeApi';
-import { createPhotoApi, isPhotoRequest } from '../testutils/photoApi';
+import { mockApi, mockPhotos } from '../testutils/fakeApi';
 
 function photo(page: Page, name: string) {
   return page.getByRole('button', { name, exact: true });
-}
-
-async function mockPhotos(page: Page) {
-  const api = createPhotoApi();
-  await page.route((url) => isPhotoRequest(url.pathname), async (route) => {
-    const request = route.request();
-    const body = request.postDataBuffer();
-    const response = await api.handle(new Request(request.url(), {
-      method: request.method(),
-      headers: request.headers(),
-      body: body ? new Uint8Array(body) : undefined,
-    }));
-    await route.fulfill({
-      status: response.status,
-      headers: Object.fromEntries(response.headers),
-      body: Buffer.from(await response.arrayBuffer()),
-    });
-  });
-  return api;
 }
 
 async function openPhotos(page: Page) {

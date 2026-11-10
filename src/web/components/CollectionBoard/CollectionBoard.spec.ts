@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { sampleCollections } from '../../testutils/sampleCollections';
-import { mockApi } from '../../testutils/fakeApi';
+import { sampleCollections, sampleCoverThumbnail } from '../../testutils/sampleCollections';
+import { samplePhotos } from '../../testutils/samplePhotos';
+import { mockApi, mockPhotos } from '../../testutils/fakeApi';
 
 function board(page: Page) {
   return page.getByRole('region', { name: 'Collections' });
@@ -161,14 +162,56 @@ test('should scroll to and select the new collection', async ({ page }) => {
     .toBeGreaterThan(0);
 });
 
+test('can choose a collection cover', async ({ page }) => {
+  await mockPhotos(page);
+  const first = await selectFirst(page);
+
+  await first.getByRole('button', { name: 'Choose cover photo' }).click();
+  const picker = page.getByRole('dialog', { name: 'Choose cover photo' });
+  await picker.getByRole('button', { name: 'Photo 1', exact: true }).click();
+
+  await expect(picker).toBeHidden();
+  await expect(first.getByRole('img', { name: 'Collection cover' }))
+    .toHaveAttribute('src', '/api/photos/sample-1/thumbnail');
+});
+
+test('can close the cover picker without changing the cover', async ({ page }) => {
+  await mockPhotos(page);
+  const first = await selectFirst(page);
+  const button = first.getByRole('button', { name: 'Choose cover photo' });
+  const cover = first.getByRole('img', { name: 'Collection cover' });
+  await expect(cover).toHaveAttribute('src', sampleCoverThumbnail);
+  await button.click();
+  const picker = page.getByRole('dialog', { name: 'Choose cover photo' });
+  await expect(picker).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await expect(picker).toBeHidden();
+  await expect(cover).toHaveAttribute('src', sampleCoverThumbnail);
+  await expect(button).toBeFocused();
+});
+
 test('should send edits to the API and return to view mode', async ({
   page,
 }) => {
-  await page.route('**/api/collections', (route) =>
-    route.request().method() === 'PUT'
-      ? route.fulfill({ status: 204 })
-      : route.fallback(),
-  );
+  await mockPhotos(page);
+  let savedCollections: typeof sampleCollections | undefined;
+  await page.route('**/api/collections', (route) => {
+    if (route.request().method() === 'PUT') {
+      const { collections }: { collections: typeof sampleCollections } =
+        route.request().postDataJSON();
+      savedCollections = collections.map((item) =>
+        item.coverPhotoId === 'sample-1'
+          ? { ...item, coverThumbnailUrl: samplePhotos[0].thumbnail }
+          : item,
+      );
+      return route.fulfill({ status: 204 });
+    }
+
+    return savedCollections
+      ? route.fulfill({ json: { collections: savedCollections } })
+      : route.fallback();
+  });
   const frame = await bounds(board(page));
   const first = await selectFirst(page);
   const start = await bounds(first);
@@ -184,6 +227,12 @@ test('should send edits to the API and return to view mode', async ({
   const metadata = first.getByRole('textbox', { name: 'Collection metadata' });
   await metadata.fill('North Shore · Nov 2025');
   await metadata.press('Enter');
+
+  await first.getByRole('button', { name: 'Choose cover photo' }).click();
+  await page
+    .getByRole('dialog', { name: 'Choose cover photo' })
+    .getByRole('button', { name: 'Photo 1', exact: true })
+    .click();
 
   await first
     .getByRole('button', { name: 'Along Superior', exact: true })
@@ -207,8 +256,9 @@ test('should send edits to the API and return to view mode', async ({
   expect(edited).toMatchObject({
     title: 'Along the North Shore',
     metadata: 'North Shore · Nov 2025',
-    coverPhotoId: 'ore-dock',
+    coverPhotoId: 'sample-1',
   });
+  expect(edited).not.toHaveProperty('coverThumbnailUrl');
   expect(edited.x).toBeCloseTo((start.x - frame.x + 48) / frame.width, 3);
   expect(edited.y).toBeCloseTo((start.y - frame.y + 32) / frame.width, 3);
   expect(edited.width).toBeCloseTo((start.width + 60) / frame.width, 3);
@@ -219,6 +269,8 @@ test('should send edits to the API and return to view mode', async ({
   ).toBeVisible();
   await expect(saved.getByText('North Shore · Nov 2025')).toBeVisible();
   await expect(saved.getByRole('link')).toBeVisible();
+  await expect(saved.getByRole('img', { name: 'Collection cover' }))
+    .toHaveAttribute('src', samplePhotos[0].thumbnail);
 
   const position = await bounds(saved);
   expect(position.x - start.x).toBeCloseTo(48, 0);

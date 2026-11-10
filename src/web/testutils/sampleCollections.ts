@@ -1,4 +1,7 @@
 import type { Collection } from '../data/Collection';
+import { samplePhotos } from './samplePhotos';
+
+export const sampleCoverThumbnail = samplePhotos[1].thumbnail;
 
 export const sampleCollections: Collection[] = [
   {
@@ -6,6 +9,7 @@ export const sampleCollections: Collection[] = [
     title: 'Along Superior',
     metadata: 'Lake Superior · Oct 2025',
     coverPhotoId: 'ore-dock',
+    coverThumbnailUrl: sampleCoverThumbnail,
     x: 0,
     y: 0,
     width: 0.53,

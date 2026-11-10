@@ -1,11 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { mockApi } from '../testutils/fakeApi';
+import { sampleCoverThumbnail } from '../testutils/sampleCollections';
 
 test('can open a collection from its cover in view mode', async ({ page }) => {
   await mockApi(page);
   await page.goto('/');
 
   const collection = page.getByRole('article', { name: 'Along Superior' });
+  await expect(collection.getByRole('img', { name: 'Collection cover' }))
+    .toHaveAttribute('src', sampleCoverThumbnail);
 
   await collection.getByRole('link').click();
 
@@ -13,6 +16,8 @@ test('can open a collection from its cover in view mode', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: 'Along Superior', level: 1 }),
   ).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Collection cover' }))
+    .toHaveAttribute('src', sampleCoverThumbnail);
 });
 
 test('should show collections returned by the API', async ({ page }) => {
