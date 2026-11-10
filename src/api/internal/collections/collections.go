@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+
+	"github.com/imkln/portfolio/src/internal/photos"
 )
 
 type List struct {
@@ -23,6 +25,11 @@ type Collection struct {
 	X            *float64 `json:"x"`
 	Y            *float64 `json:"y"`
 	Width        *float64 `json:"width"`
+}
+
+type listedCollection struct {
+	Collection
+	CoverThumbnailURL string `json:"coverThumbnailUrl,omitempty"`
 }
 
 type Store interface {
@@ -45,10 +52,22 @@ func (app *handler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if config.Collections == nil {
-		config.Collections = []Collection{}
+	items := make([]listedCollection, 0, len(config.Collections))
+	for _, collection := range config.Collections {
+		item := listedCollection{Collection: collection}
+		if id := collection.CoverPhotoID; id != nil && photos.ValidID(*id) {
+			thumbnail, err := app.thumbnailURL(r.Context(), *id)
+			if err != nil {
+				slog.ErrorContext(r.Context(), "sign collection cover thumbnail", "error", err)
+			} else {
+				item.CoverThumbnailURL = thumbnail
+			}
+		}
+		items = append(items, item)
 	}
-	writeJSON(w, http.StatusOK, config)
+	writeJSON(w, http.StatusOK, struct {
+		Collections []listedCollection `json:"collections"`
+	}{Collections: items})
 }
 
 func (app *handler) replace(w http.ResponseWriter, r *http.Request) {
@@ -106,12 +125,18 @@ func (item Collection) validLayout() bool {
 }
 
 type handler struct {
-	store   Store
-	isOwner func(*http.Request) bool
+	store        Store
+	isOwner      func(*http.Request) bool
+	thumbnailURL func(context.Context, string) (string, error)
 }
 
-func Register(mux *http.ServeMux, store Store, isOwner func(*http.Request) bool) {
-	app := handler{store: store, isOwner: isOwner}
+func Register(
+	mux *http.ServeMux,
+	store Store,
+	isOwner func(*http.Request) bool,
+	thumbnailURL func(context.Context, string) (string, error),
+) {
+	app := handler{store: store, isOwner: isOwner, thumbnailURL: thumbnailURL}
 	mux.HandleFunc("GET /api/collections", app.list)
 	mux.HandleFunc("PUT /api/collections", app.replace)
 }
