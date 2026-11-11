@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	assets := flag.String("assets", "src/web/dist", "frontend build directory")
+	assets := flag.String("assets", "src/frontend/dist", "frontend build directory")
 	flag.Parse()
 
 	if os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {

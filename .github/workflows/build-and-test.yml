@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: src/web
+        working-directory: src/frontend
     steps:
       - uses: actions/checkout@v7
 
@@ -34,7 +34,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: web
-          path: src/web/dist
+          path: src/frontend/dist
           retention-days: 1
           if-no-files-found: error
 
@@ -86,7 +86,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: web
-          path: src/web/dist
+          path: src/frontend/dist
 
       - uses: actions/download-artifact@v8
         with:

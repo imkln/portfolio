@@ -1,0 +1,8 @@
+.photos-page {
+  padding-top: clamp(20px, 3vw, 34px);
+}
+
+.photo-selection-count {
+  padding-inline: 8px;
+  color: var(--muted);
+}
