@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/imkln/portfolio/src/api/internal/auth"
-	"github.com/imkln/portfolio/src/api/internal/collections"
-	"github.com/imkln/portfolio/src/api/internal/photos"
+	"github.com/imkln/portfolio/src/backend/internal/api/auth"
+	"github.com/imkln/portfolio/src/backend/internal/api/collections"
+	"github.com/imkln/portfolio/src/backend/internal/api/photos"
 )
 
 func New(

@@ -20,9 +20,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/imkln/portfolio/src/api/internal/photos"
-	"github.com/imkln/portfolio/src/api/internal/testutils"
-	photostore "github.com/imkln/portfolio/src/internal/photos"
+	"github.com/imkln/portfolio/src/backend/internal/api/photos"
+	"github.com/imkln/portfolio/src/backend/internal/api/testutils"
+	photostore "github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
 
 const (
@@ -37,10 +37,9 @@ const (
 func TestOwnerCanListPhotos(t *testing.T) {
 	older := photo("older", "ready", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
 	newer := photo("newer", "ready", time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC))
-	fixture := newLibrary(t, older, newer)
-	owner := fixture.SignIn(t)
+	fixture := newLibrary(true, older, newer)
 
-	response := testutils.Request(fixture.Mux, http.MethodGet, "/api/photos", "", owner)
+	response := testutils.Request(fixture, http.MethodGet, "/api/photos", "")
 
 	page := readPage(t, response)
 	if got := page.ids(); !slices.Equal(got, []string{"newer", "older"}) {
@@ -54,16 +53,15 @@ func TestOwnerCanLoadMorePhotos(t *testing.T) {
 	for i := 1; i <= 25; i++ {
 		items = append(items, photo(fmt.Sprintf("photo-%02d", i), "ready", uploadedAt))
 	}
-	fixture := newLibrary(t, items...)
-	owner := fixture.SignIn(t)
+	fixture := newLibrary(true, items...)
 
-	first := readPage(t, testutils.Request(fixture.Mux, http.MethodGet, "/api/photos", "", owner))
+	first := readPage(t, testutils.Request(fixture, http.MethodGet, "/api/photos", ""))
 	if len(first.Photos) != 24 || first.NextPageToken == "" {
 		t.Fatalf("first page has %d photos and token %q, want 24 photos and a token", len(first.Photos), first.NextPageToken)
 	}
 
 	path := "/api/photos?pageToken=" + url.QueryEscape(first.NextPageToken)
-	next := readPage(t, testutils.Request(fixture.Mux, http.MethodGet, path, "", owner))
+	next := readPage(t, testutils.Request(fixture, http.MethodGet, path, ""))
 
 	var want []string
 	for i := 25; i >= 1; i-- {
@@ -80,14 +78,13 @@ func TestOwnerCanLoadMorePhotos(t *testing.T) {
 
 func TestListHidesUnfinishedPhotos(t *testing.T) {
 	uploadedAt := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	fixture := newLibrary(t,
+	fixture := newLibrary(true,
 		photo("ready", "ready", uploadedAt),
 		photo("uploading", "uploading", uploadedAt),
 		photo("processing", "processing", uploadedAt),
 	)
-	owner := fixture.SignIn(t)
 
-	response := testutils.Request(fixture.Mux, http.MethodGet, "/api/photos", "", owner)
+	response := testutils.Request(fixture, http.MethodGet, "/api/photos", "")
 
 	page := readPage(t, response)
 	if got := page.ids(); !slices.Equal(got, []string{"ready"}) {
@@ -96,27 +93,25 @@ func TestListHidesUnfinishedPhotos(t *testing.T) {
 }
 
 func TestNonOwnerCannotListPhotos(t *testing.T) {
-	fixture := newLibrary(t)
+	fixture := newLibrary(false)
 
-	response := testutils.Request(fixture.Mux, http.MethodGet, "/api/photos", "")
+	response := testutils.Request(fixture, http.MethodGet, "/api/photos", "")
 
 	testutils.CheckStatus(t, response, http.StatusUnauthorized)
 }
 
 func TestListRejectsInvalidPageToken(t *testing.T) {
-	fixture := newLibrary(t)
-	owner := fixture.SignIn(t)
+	fixture := newLibrary(true)
 
-	response := testutils.Request(fixture.Mux, http.MethodGet, "/api/photos?pageToken=invalid!", "", owner)
+	response := testutils.Request(fixture, http.MethodGet, "/api/photos?pageToken=invalid!", "")
 
 	testutils.CheckStatus(t, response, http.StatusBadRequest)
 }
 
 func TestOwnerCanGetPhoto(t *testing.T) {
-	fixture, _ := readyPhoto(t)
-	owner := fixture.SignIn(t)
+	fixture, _ := readyPhoto(true)
 
-	response := testutils.Request(fixture.Mux, http.MethodGet, photoPath, "", owner)
+	response := testutils.Request(fixture, http.MethodGet, photoPath, "")
 
 	testutils.CheckStatus(t, response, http.StatusTemporaryRedirect)
 	if location := response.Header().Get("Location"); location != fileOrigin+originalKey {
@@ -125,10 +120,9 @@ func TestOwnerCanGetPhoto(t *testing.T) {
 }
 
 func TestOwnerCanGetThumbnail(t *testing.T) {
-	fixture, _ := readyPhoto(t)
-	owner := fixture.SignIn(t)
+	fixture, _ := readyPhoto(true)
 
-	response := testutils.Request(fixture.Mux, http.MethodGet, thumbnailPath, "", owner)
+	response := testutils.Request(fixture, http.MethodGet, thumbnailPath, "")
 
 	testutils.CheckStatus(t, response, http.StatusTemporaryRedirect)
 	if location := response.Header().Get("Location"); location != fileOrigin+thumbnailKey {
@@ -137,11 +131,11 @@ func TestOwnerCanGetThumbnail(t *testing.T) {
 }
 
 func TestNonOwnerCannotGetPhoto(t *testing.T) {
-	fixture, _ := readyPhoto(t)
+	fixture, _ := readyPhoto(false)
 
 	for _, path := range []string{photoPath, thumbnailPath} {
 		t.Run(path, func(t *testing.T) {
-			response := testutils.Request(fixture.Mux, http.MethodGet, path, "")
+			response := testutils.Request(fixture, http.MethodGet, path, "")
 
 			testutils.CheckStatus(t, response, http.StatusUnauthorized)
 		})
@@ -149,12 +143,11 @@ func TestNonOwnerCannotGetPhoto(t *testing.T) {
 }
 
 func TestGetMissingPhotoReturnsNotFound(t *testing.T) {
-	fixture, _ := newFileLibrary(t)
-	owner := fixture.SignIn(t)
+	fixture, _ := newFileLibrary(true)
 
 	for _, path := range []string{photoPath, thumbnailPath} {
 		t.Run(path, func(t *testing.T) {
-			response := testutils.Request(fixture.Mux, http.MethodGet, path, "", owner)
+			response := testutils.Request(fixture, http.MethodGet, path, "")
 
 			checkPhotoNotFound(t, response)
 		})
@@ -162,11 +155,10 @@ func TestGetMissingPhotoReturnsNotFound(t *testing.T) {
 }
 
 func TestOwnerCanUploadPhotos(t *testing.T) {
-	fixture := newUploadLibrary(t)
-	owner := fixture.SignIn(t)
+	fixture := newUploadLibrary(true)
 
-	first := readUpload(t, testutils.Request(fixture.Mux, http.MethodPost, "/api/photos", uploadRequest("lake.jpg", "image/jpeg", 32<<20), owner))
-	second := readUpload(t, testutils.Request(fixture.Mux, http.MethodPost, "/api/photos", uploadRequest("shore.jpg", "image/jpeg", 32<<20), owner))
+	first := readUpload(t, testutils.Request(fixture, http.MethodPost, "/api/photos", uploadRequest("lake.jpg", "image/jpeg", 32<<20)))
+	second := readUpload(t, testutils.Request(fixture, http.MethodPost, "/api/photos", uploadRequest("shore.jpg", "image/jpeg", 32<<20)))
 
 	if first.Fields["key"] == second.Fields["key"] {
 		t.Fatal("two photos received the same upload key")
@@ -182,30 +174,28 @@ func TestOwnerCanUploadPhotos(t *testing.T) {
 }
 
 func TestNonOwnerCannotUploadPhotos(t *testing.T) {
-	fixture := newUploadLibrary(t)
+	fixture := newUploadLibrary(false)
 
-	response := testutils.Request(fixture.Mux, http.MethodPost, "/api/photos", uploadRequest("lake.jpg", "image/jpeg", 1024))
+	response := testutils.Request(fixture, http.MethodPost, "/api/photos", uploadRequest("lake.jpg", "image/jpeg", 1024))
 
 	testutils.CheckStatus(t, response, http.StatusUnauthorized)
 }
 
 func TestUploadRejectsInvalidFileTypes(t *testing.T) {
-	fixture := newUploadLibrary(t)
-	owner := fixture.SignIn(t)
+	fixture := newUploadLibrary(true)
 
-	response := testutils.Request(fixture.Mux, http.MethodPost, "/api/photos", uploadRequest("lake.png", "image/png", 1024), owner)
+	response := testutils.Request(fixture, http.MethodPost, "/api/photos", uploadRequest("lake.png", "image/png", 1024))
 
 	testutils.CheckStatus(t, response, http.StatusBadRequest)
 }
 
 func TestUploadRejectsFilesThatAreTooLarge(t *testing.T) {
-	fixture := newUploadLibrary(t)
-	owner := fixture.SignIn(t)
+	fixture := newUploadLibrary(true)
 
-	tooLarge := testutils.Request(fixture.Mux, http.MethodPost, "/api/photos", uploadRequest("lake.jpg", "image/jpeg", maxPhotoBytes+1), owner)
+	tooLarge := testutils.Request(fixture, http.MethodPost, "/api/photos", uploadRequest("lake.jpg", "image/jpeg", maxPhotoBytes+1))
 	testutils.CheckStatus(t, tooLarge, http.StatusBadRequest)
 
-	largest := readUpload(t, testutils.Request(fixture.Mux, http.MethodPost, "/api/photos", uploadRequest("lake.jpg", "image/jpeg", maxPhotoBytes), owner))
+	largest := readUpload(t, testutils.Request(fixture, http.MethodPost, "/api/photos", uploadRequest("lake.jpg", "image/jpeg", maxPhotoBytes)))
 
 	policy, err := base64.StdEncoding.DecodeString(largest.Fields["policy"])
 	if err != nil {
@@ -229,37 +219,53 @@ func TestUploadRejectsFilesThatAreTooLarge(t *testing.T) {
 }
 
 func TestOwnerCanDeletePhoto(t *testing.T) {
-	fixture, files := readyPhoto(t)
-	owner := fixture.SignIn(t)
+	fixture, files := readyPhoto(true)
 
-	response := testutils.Request(fixture.Mux, http.MethodDelete, photoPath, "", owner)
+	response := testutils.Request(fixture, http.MethodDelete, photoPath, "")
 
 	testutils.CheckStatus(t, response, http.StatusNoContent)
-	if len(files) != 0 {
-		t.Fatalf("photo files remain after deletion: %v", files)
+	if len(files.urls) != 0 {
+		t.Fatalf("photo files remain after deletion: %v", files.urls)
 	}
-	after := readPage(t, testutils.Request(fixture.Mux, http.MethodGet, "/api/photos", "", owner))
+	after := readPage(t, testutils.Request(fixture, http.MethodGet, "/api/photos", ""))
 	if len(after.Photos) != 0 {
 		t.Fatalf("photo still listed after deletion: %v", after.ids())
 	}
 }
 
 func TestNonOwnerCannotDeletePhoto(t *testing.T) {
-	fixture, files := readyPhoto(t)
+	fixture, files := readyPhoto(false)
 
-	response := testutils.Request(fixture.Mux, http.MethodDelete, photoPath, "")
+	response := testutils.Request(fixture, http.MethodDelete, photoPath, "")
 
 	testutils.CheckStatus(t, response, http.StatusUnauthorized)
-	if len(files) != 2 {
+	if len(files.urls) != 2 {
 		t.Fatal("the files changed after an unauthorized request")
 	}
 }
 
-func TestDeleteMissingPhotoReturnsNotFound(t *testing.T) {
-	fixture, _ := newFileLibrary(t)
-	owner := fixture.SignIn(t)
+func TestOwnerCanRetryPhotoDeletion(t *testing.T) {
+	mux, files := readyPhoto(true)
+	files.deleteErr = errors.New("storage unavailable")
 
-	response := testutils.Request(fixture.Mux, http.MethodDelete, photoPath, "", owner)
+	failed := testutils.Request(mux, http.MethodDelete, photoPath, "")
+
+	testutils.CheckStatus(t, failed, http.StatusInternalServerError)
+	page := readPage(t, testutils.Request(mux, http.MethodGet, "/api/photos", ""))
+	if !slices.Equal(page.ids(), []string{"lake"}) {
+		t.Fatalf("photos after failed deletion = %v, want [lake]", page.ids())
+	}
+
+	files.deleteErr = nil
+	retried := testutils.Request(mux, http.MethodDelete, photoPath, "")
+
+	testutils.CheckStatus(t, retried, http.StatusNoContent)
+}
+
+func TestDeleteMissingPhotoReturnsNotFound(t *testing.T) {
+	fixture, _ := newFileLibrary(true)
+
+	response := testutils.Request(fixture, http.MethodDelete, photoPath, "")
 
 	checkPhotoNotFound(t, response)
 }
@@ -306,11 +312,9 @@ func photo(id, state string, uploadedAt time.Time) photoItem {
 	}
 }
 
-func newLibrary(t *testing.T, items ...photoItem) *testutils.Auth {
-	t.Helper()
-	fixture := testutils.NewAuth(t, testutils.OwnerEmail)
-	photos.Register(fixture.Mux, photostore.NewDynamoStore(&photoTable{items}, "test-photos"), fileLibrary(nil), fixture.Sessions.IsOwner)
-	return fixture
+func newLibrary(owner bool, items ...photoItem) *http.ServeMux {
+	mux, _ := newFileLibrary(owner, items...)
+	return mux
 }
 
 type photoTable struct {
@@ -391,11 +395,8 @@ func (table *photoTable) UpdateItem(_ context.Context, input *dynamodb.UpdateIte
 		if item.id != id {
 			continue
 		}
-		if item.state == "ready" && input.ExpressionAttributeValues[":deleting"] != nil {
-			table.items[i].state = "deleting"
-			return &dynamodb.UpdateItemOutput{}, nil
-		}
-		if item.state == "deleting" && input.ExpressionAttributeValues[":deleted"] != nil {
+		switch item.state {
+		case "ready", "deleting", "deleted":
 			table.items[i] = photoItem{id: id, state: "deleted"}
 			return &dynamodb.UpdateItemOutput{}, nil
 		}
@@ -411,45 +412,48 @@ func checkPhotoNotFound(t *testing.T, response *httptest.ResponseRecorder) {
 	}
 }
 
-func readyPhoto(t *testing.T) (*testutils.Auth, fileLibrary) {
-	t.Helper()
-
-	return newFileLibrary(t, photo("lake", "ready", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)))
+func readyPhoto(owner bool) (*http.ServeMux, *fileLibrary) {
+	return newFileLibrary(owner, photo("lake", "ready", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)))
 }
 
-func newFileLibrary(t *testing.T, items ...photoItem) (*testutils.Auth, fileLibrary) {
-	t.Helper()
-
-	fixture := testutils.NewAuth(t, testutils.OwnerEmail)
+func newFileLibrary(owner bool, items ...photoItem) (*http.ServeMux, *fileLibrary) {
+	mux := http.NewServeMux()
 	table := &photoTable{items: items}
 	store := photostore.NewDynamoStore(table, "test-photos")
-	files := fileLibrary{}
+	files := &fileLibrary{urls: make(map[string]string)}
 	if len(items) > 0 {
-		files[originalKey] = fileOrigin + originalKey
-		files[thumbnailKey] = fileOrigin + thumbnailKey
+		files.urls[originalKey] = fileOrigin + originalKey
+		files.urls[thumbnailKey] = fileOrigin + thumbnailKey
 	}
 
-	photos.Register(fixture.Mux, store, files, fixture.Sessions.IsOwner)
-	return fixture, files
+	photos.Register(mux, store, files, func(*http.Request) bool { return owner })
+	return mux, files
 }
 
-type fileLibrary map[string]string
+type fileLibrary struct {
+	urls      map[string]string
+	deleteErr error
+}
 
-func (files fileLibrary) SignUpload(context.Context, string, int64) (photostore.UploadForm, error) {
+func (files *fileLibrary) SignUpload(context.Context, string, int64) (photostore.UploadForm, error) {
 	return photostore.UploadForm{}, errors.New("unexpected upload")
 }
 
-func (files fileLibrary) OriginalURL(_ context.Context, id string) (string, error) {
-	return files["originals/"+id+".jpg"], nil
+func (files *fileLibrary) OriginalURL(_ context.Context, id string) (string, error) {
+	return files.urls["originals/"+id+".jpg"], nil
 }
 
-func (files fileLibrary) ThumbnailURL(_ context.Context, id string) (string, error) {
-	return files["thumbnails/"+id+".jpg"], nil
+func (files *fileLibrary) ThumbnailURL(_ context.Context, id string) (string, error) {
+	return files.urls["thumbnails/"+id+".jpg"], nil
 }
 
-func (files fileLibrary) DeletePhoto(_ context.Context, id string) error {
-	delete(files, "originals/"+id+".jpg")
-	delete(files, "thumbnails/"+id+".jpg")
+func (files *fileLibrary) DeletePhoto(_ context.Context, id string) error {
+	if files.deleteErr != nil {
+		return files.deleteErr
+	}
+
+	delete(files.urls, "originals/"+id+".jpg")
+	delete(files.urls, "thumbnails/"+id+".jpg")
 	return nil
 }
 
@@ -473,14 +477,13 @@ func uploadRequest(name, contentType string, size int) string {
 	return fmt.Sprintf(`{"name":%q,"contentType":%q,"size":%d}`, name, contentType, size)
 }
 
-func newUploadLibrary(t *testing.T) *testutils.Auth {
-	t.Helper()
-	fixture := testutils.NewAuth(t, testutils.OwnerEmail)
+func newUploadLibrary(owner bool) *http.ServeMux {
+	mux := http.NewServeMux()
 	client := s3.New(s3.Options{
 		Region:      "us-east-1",
 		Credentials: aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider("test", "test", "")),
 	})
 	uploads := photostore.NewS3Store(client, "test-photos")
-	photos.Register(fixture.Mux, nil, uploads, fixture.Sessions.IsOwner)
-	return fixture
+	photos.Register(mux, nil, uploads, func(*http.Request) bool { return owner })
+	return mux
 }

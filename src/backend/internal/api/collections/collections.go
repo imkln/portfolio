@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/imkln/portfolio/src/internal/photos"
+	"github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
 
 type List struct {

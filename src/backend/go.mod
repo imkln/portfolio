@@ -1,4 +1,4 @@
-module github.com/imkln/portfolio
+module github.com/imkln/portfolio/src/backend
 
 go 1.26.0
 

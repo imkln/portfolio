@@ -1,4 +1,4 @@
-package main
+package worker
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/disintegration/imaging"
-	"github.com/imkln/portfolio/src/internal/photos"
+	"github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
 
 const (
@@ -27,16 +27,16 @@ type workerFiles interface {
 	DeletePhoto(ctx context.Context, id string) error
 }
 
-type worker struct {
+type Worker struct {
 	store workerStore
 	files workerFiles
 }
 
-func newWorker(store workerStore, files workerFiles) *worker {
-	return &worker{store: store, files: files}
+func New(store workerStore, files workerFiles) *Worker {
+	return &Worker{store: store, files: files}
 }
 
-func (worker *worker) process(ctx context.Context, key string, uploadedAt time.Time) error {
+func (worker *Worker) Process(ctx context.Context, key string, uploadedAt time.Time) error {
 	id, ok := photos.UploadID(key)
 	if !ok || uploadedAt.IsZero() {
 		return photos.ErrInvalidUpload

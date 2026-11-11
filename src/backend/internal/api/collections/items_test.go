@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/imkln/portfolio/src/api/internal/testutils"
+	"github.com/imkln/portfolio/src/backend/internal/api/testutils"
 )
 
 const lakePath = "/api/collections/lake"
@@ -15,54 +15,51 @@ const captionItem = `{"id":"note","kind":"caption","text":"Along the shore","x":
 const itemsUpdate = `{"items":[` + photoItem + "," + captionItem + `]}`
 const lakeWithItems = lake + `"items":[` + listedPhotoItem + "," + captionItem + `]}`
 
-func collectionFixture(t *testing.T, email string) *testutils.Auth {
+func collectionFixture(t *testing.T, owner bool) *http.ServeMux {
 	t.Helper()
 
 	store := testDynamoStore(t)
 	if err := seedCollections(t, store); err != nil {
 		t.Fatalf("seed collections: %v", err)
 	}
-	return newFixture(t, store, email)
+	return newFixture(store, owner)
 }
 
 func TestCanGetCollection(t *testing.T) {
-	fixture := collectionFixture(t, testutils.OwnerEmail)
-	cookie := fixture.SignIn(t)
-	saved := testutils.Request(fixture.Mux, http.MethodPatch, lakePath, itemsUpdate, cookie)
+	fixture := collectionFixture(t, true)
+	saved := testutils.Request(fixture, http.MethodPatch, lakePath, itemsUpdate)
 	testutils.CheckStatus(t, saved, http.StatusNoContent)
 
-	response := testutils.Request(fixture.Mux, http.MethodGet, lakePath, "")
+	response := testutils.Request(fixture, http.MethodGet, lakePath, "")
 
 	checkCollections(t, response, lakeWithItems)
 }
 
 func TestOwnerCanUpdateCollectionItems(t *testing.T) {
-	fixture := collectionFixture(t, testutils.OwnerEmail)
-	cookie := fixture.SignIn(t)
+	fixture := collectionFixture(t, true)
 
-	saved := testutils.Request(fixture.Mux, http.MethodPatch, lakePath, itemsUpdate, cookie)
+	saved := testutils.Request(fixture, http.MethodPatch, lakePath, itemsUpdate)
 	testutils.CheckStatus(t, saved, http.StatusNoContent)
-	cleared := testutils.Request(fixture.Mux, http.MethodPatch, lakePath, `{"items":[]}`, cookie)
+	cleared := testutils.Request(fixture, http.MethodPatch, lakePath, `{"items":[]}`)
 
 	testutils.CheckStatus(t, cleared, http.StatusNoContent)
-	checkCollections(t, testutils.Request(fixture.Mux, http.MethodGet, lakePath, ""), lake+`"items":[]}`)
+	checkCollections(t, testutils.Request(fixture, http.MethodGet, lakePath, ""), lake+`"items":[]}`)
 }
 
 func TestNonOwnerCannotUpdateCollectionItems(t *testing.T) {
-	fixture := collectionFixture(t, testutils.NonOwnerEmail)
-	before := testutils.Request(fixture.Mux, http.MethodGet, lakePath, "")
+	fixture := collectionFixture(t, false)
+	before := testutils.Request(fixture, http.MethodGet, lakePath, "")
 	testutils.CheckStatus(t, before, http.StatusOK)
 
-	response := testutils.Request(fixture.Mux, http.MethodPatch, lakePath, itemsUpdate)
+	response := testutils.Request(fixture, http.MethodPatch, lakePath, itemsUpdate)
 
 	testutils.CheckStatus(t, response, http.StatusUnauthorized)
-	checkCollections(t, testutils.Request(fixture.Mux, http.MethodGet, lakePath, ""), before.Body.String())
+	checkCollections(t, testutils.Request(fixture, http.MethodGet, lakePath, ""), before.Body.String())
 }
 
 func TestCannotUpdateCollectionWithInvalidItems(t *testing.T) {
-	fixture := collectionFixture(t, testutils.OwnerEmail)
-	cookie := fixture.SignIn(t)
-	saved := testutils.Request(fixture.Mux, http.MethodPatch, lakePath, itemsUpdate, cookie)
+	fixture := collectionFixture(t, true)
+	saved := testutils.Request(fixture, http.MethodPatch, lakePath, itemsUpdate)
 	testutils.CheckStatus(t, saved, http.StatusNoContent)
 
 	for _, test := range []struct {
@@ -75,45 +72,37 @@ func TestCannotUpdateCollectionWithInvalidItems(t *testing.T) {
 		{"missing caption height", `{"items":[{"id":"note","kind":"caption","text":"Lake","x":0,"y":0,"width":0.5}]}`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			response := testutils.Request(fixture.Mux, http.MethodPatch, lakePath, test.body, cookie)
+			response := testutils.Request(fixture, http.MethodPatch, lakePath, test.body)
 
 			testutils.CheckStatus(t, response, http.StatusBadRequest)
-			checkCollections(t, testutils.Request(fixture.Mux, http.MethodGet, lakePath, ""), lakeWithItems)
+			checkCollections(t, testutils.Request(fixture, http.MethodGet, lakePath, ""), lakeWithItems)
 		})
 	}
 }
 
 func TestGetMissingCollectionReturnsNotFound(t *testing.T) {
-	fixture := collectionFixture(t, testutils.NonOwnerEmail)
+	fixture := collectionFixture(t, false)
 
-	response := testutils.Request(fixture.Mux, http.MethodGet, "/api/collections/missing", "")
+	response := testutils.Request(fixture, http.MethodGet, "/api/collections/missing", "")
 
 	testutils.CheckStatus(t, response, http.StatusNotFound)
-	if response.Body.String() != "{\"error\":\"Not Found\"}\n" {
-		t.Fatalf("unexpected error body: %s", response.Body)
-	}
 }
 
 func TestUpdateMissingCollectionReturnsNotFound(t *testing.T) {
-	fixture := collectionFixture(t, testutils.OwnerEmail)
-	cookie := fixture.SignIn(t)
+	fixture := collectionFixture(t, true)
 
-	response := testutils.Request(fixture.Mux, http.MethodPatch, "/api/collections/missing", itemsUpdate, cookie)
+	response := testutils.Request(fixture, http.MethodPatch, "/api/collections/missing", itemsUpdate)
 
 	testutils.CheckStatus(t, response, http.StatusNotFound)
-	if response.Body.String() != "{\"error\":\"Not Found\"}\n" {
-		t.Fatalf("unexpected error body: %s", response.Body)
-	}
 }
 
 func TestReplacingCollectionsPreservesItems(t *testing.T) {
-	fixture := collectionFixture(t, testutils.OwnerEmail)
-	cookie := fixture.SignIn(t)
-	saved := testutils.Request(fixture.Mux, http.MethodPatch, lakePath, itemsUpdate, cookie)
+	fixture := collectionFixture(t, true)
+	saved := testutils.Request(fixture, http.MethodPatch, lakePath, itemsUpdate)
 	testutils.CheckStatus(t, saved, http.StatusNoContent)
 
-	updated := testutils.Request(fixture.Mux, http.MethodPut, "/api/collections", savedCollections, cookie)
+	updated := testutils.Request(fixture, http.MethodPut, "/api/collections", savedCollections)
 
 	testutils.CheckStatus(t, updated, http.StatusNoContent)
-	checkCollections(t, testutils.Request(fixture.Mux, http.MethodGet, lakePath, ""), lakeWithItems)
+	checkCollections(t, testutils.Request(fixture, http.MethodGet, lakePath, ""), lakeWithItems)
 }

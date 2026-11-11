@@ -2,6 +2,7 @@ package photos
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"strings"
 	"time"
@@ -12,10 +13,13 @@ import (
 )
 
 const (
-	readyState    = "ready"
-	DeletingState = "deleting"
-	DeletedState  = "deleted"
+	readyState       = "ready"
+	DeletingState    = "deleting" // Photos left by the previous deletion flow.
+	DeletedState     = "deleted"
+	uploadTimeLayout = "2006-01-02T15:04:05.000000000Z"
 )
+
+var ErrInvalidPageToken = errors.New("invalid page token")
 
 type dynamoClient interface {
 	Query(context.Context, *dynamodb.QueryInput, ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
@@ -32,7 +36,7 @@ func NewDynamoStore(client dynamoClient, table string) *dynamoStore {
 	return &dynamoStore{client: client, table: table}
 }
 
-func (store *dynamoStore) ListReady(ctx context.Context, after string, limit int32) ([]Photo, string, error) {
+func (store *dynamoStore) ListReady(ctx context.Context, pageToken string, limit int32) ([]Photo, string, error) {
 	input := &dynamodb.QueryInput{
 		TableName:              aws.String(store.table),
 		IndexName:              aws.String("photos-by-state"),
@@ -46,8 +50,11 @@ func (store *dynamoStore) ListReady(ctx context.Context, after string, limit int
 		ScanIndexForward: aws.Bool(false),
 		Limit:            aws.Int32(limit),
 	}
-	if after != "" {
-		_, id, _ := strings.Cut(after, "#")
+	if pageToken != "" {
+		after, id, err := readPageToken(pageToken)
+		if err != nil {
+			return nil, "", err
+		}
 		input.ExclusiveStartKey = map[string]types.AttributeValue{
 			"id":        &types.AttributeValueMemberS{Value: id},
 			"state":     &types.AttributeValueMemberS{Value: readyState},
@@ -82,9 +89,30 @@ func (store *dynamoStore) ListReady(ctx context.Context, after string, limit int
 		if !ok {
 			return nil, "", errors.New("photo query is missing the last upload key")
 		}
-		next = key.Value
+		next = base64.RawURLEncoding.EncodeToString([]byte(key.Value))
 	}
 	return items, next, nil
+}
+
+func readPageToken(token string) (key, id string, err error) {
+	if len(token) > base64.RawURLEncoding.EncodedLen(len(uploadTimeLayout)+1+128) {
+		return "", "", ErrInvalidPageToken
+	}
+
+	data, err := base64.RawURLEncoding.Strict().DecodeString(token)
+	if err != nil {
+		return "", "", ErrInvalidPageToken
+	}
+
+	key = string(data)
+	stamp, id, ok := strings.Cut(key, "#")
+	if !ok || len(stamp) != len(uploadTimeLayout) || !ValidID(id) {
+		return "", "", ErrInvalidPageToken
+	}
+	if _, err := time.Parse(uploadTimeLayout, stamp); err != nil {
+		return "", "", ErrInvalidPageToken
+	}
+	return key, id, nil
 }
 
 func (store *dynamoStore) IsReady(ctx context.Context, id string) (bool, error) {
@@ -113,42 +141,31 @@ func (store *dynamoStore) PhotoState(ctx context.Context, id string) (string, er
 	return state.Value, nil
 }
 
-func (store *dynamoStore) BeginDelete(ctx context.Context, id string) (bool, error) {
-	_, err := store.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-		TableName:           aws.String(store.table),
-		Key:                 photoKey(id),
-		ConditionExpression: aws.String("#state = :ready"),
-		UpdateExpression:    aws.String("SET #state = :deleting"),
-		ExpressionAttributeNames: map[string]string{
-			"#state": "state",
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":ready":    &types.AttributeValueMemberS{Value: readyState},
-			":deleting": &types.AttributeValueMemberS{Value: DeletingState},
-		},
-	})
-	if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
-		return false, nil
-	}
-	return err == nil, err
+func (store *dynamoStore) CanDelete(ctx context.Context, id string) (bool, error) {
+	state, err := store.PhotoState(ctx, id)
+	return state == readyState || state == DeletingState || state == DeletedState, err
 }
 
-func (store *dynamoStore) FinishDelete(ctx context.Context, id string) error {
+func (store *dynamoStore) MarkDeleted(ctx context.Context, id string) (bool, error) {
 	_, err := store.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName:           aws.String(store.table),
 		Key:                 photoKey(id),
-		ConditionExpression: aws.String("#state = :deleting"),
+		ConditionExpression: aws.String("#state IN (:ready, :deleting, :deleted)"),
 		UpdateExpression:    aws.String("SET #state = :deleted REMOVE #name, uploadedAt, uploadKey"),
 		ExpressionAttributeNames: map[string]string{
 			"#state": "state",
 			"#name":  "name",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":ready":    &types.AttributeValueMemberS{Value: readyState},
 			":deleting": &types.AttributeValueMemberS{Value: DeletingState},
 			":deleted":  &types.AttributeValueMemberS{Value: DeletedState},
 		},
 	})
-	return err
+	if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func (store *dynamoStore) SaveReady(ctx context.Context, photo Photo) (bool, error) {
@@ -166,7 +183,7 @@ func (store *dynamoStore) SaveReady(ctx context.Context, photo Photo) (bool, err
 			":ready": &types.AttributeValueMemberS{Value: readyState},
 			":name":  &types.AttributeValueMemberS{Value: photo.Name},
 			":time":  &types.AttributeValueMemberS{Value: uploadedAt.Format(time.RFC3339Nano)},
-			":key":   &types.AttributeValueMemberS{Value: uploadedAt.Format(UploadTimeLayout) + "#" + photo.ID},
+			":key":   &types.AttributeValueMemberS{Value: uploadedAt.Format(uploadTimeLayout) + "#" + photo.ID},
 		},
 	})
 	if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {

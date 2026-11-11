@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/imkln/portfolio/src/internal/photos"
+	"github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
 
 type Item struct {

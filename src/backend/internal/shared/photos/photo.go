@@ -7,9 +7,8 @@ import (
 )
 
 const (
-	JPEGType         = "image/jpeg"
-	MaxUploadBytes   = 64 << 20
-	UploadTimeLayout = "2006-01-02T15:04:05.000000000Z"
+	JPEGType       = "image/jpeg"
+	MaxUploadBytes = 64 << 20
 )
 
 var (

@@ -47,21 +47,20 @@ func (store *dynamoStore) load(ctx context.Context) (List, *string, error) {
 }
 
 func (store *dynamoStore) Update(ctx context.Context, change func(*List) error) error {
-	for range 4 {
-		config, previous, err := store.load(ctx)
-		if err != nil {
-			return err
-		}
-		if err := change(&config); err != nil {
-			return err
-		}
-		err = store.save(ctx, config, previous)
-		var conflict *types.ConditionalCheckFailedException
-		if !errors.As(err, &conflict) {
-			return err
-		}
+	config, previous, err := store.load(ctx)
+	if err != nil {
+		return err
 	}
-	return errConcurrentUpdate
+	if err := change(&config); err != nil {
+		return err
+	}
+
+	err = store.save(ctx, config, previous)
+	var conflict *types.ConditionalCheckFailedException
+	if errors.As(err, &conflict) {
+		return errConcurrentUpdate
+	}
+	return err
 }
 
 func (store *dynamoStore) save(ctx context.Context, config List, previous *string) error {

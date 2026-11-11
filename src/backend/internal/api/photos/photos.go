@@ -2,7 +2,6 @@ package photos
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -10,10 +9,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 	"unicode"
 
-	photostore "github.com/imkln/portfolio/src/internal/photos"
+	photostore "github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
 
 const (
@@ -21,13 +19,11 @@ const (
 	maxUploadRequest = 4 << 10
 )
 
-var errInvalidPageToken = errors.New("invalid page token")
-
 type Store interface {
-	ListReady(ctx context.Context, after string, limit int32) ([]photostore.Photo, string, error)
+	ListReady(ctx context.Context, pageToken string, limit int32) ([]photostore.Photo, string, error)
 	IsReady(ctx context.Context, id string) (bool, error)
-	BeginDelete(ctx context.Context, id string) (bool, error)
-	FinishDelete(ctx context.Context, id string) error
+	CanDelete(ctx context.Context, id string) (bool, error)
+	MarkDeleted(ctx context.Context, id string) (bool, error)
 }
 
 type FileStore interface {
@@ -75,20 +71,20 @@ func (app *handler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var after string
+	var token string
 	if tokens, exists := params["pageToken"]; exists {
-		if len(tokens) != 1 {
+		if len(tokens) != 1 || tokens[0] == "" {
 			writeError(w, http.StatusBadRequest)
 			return
 		}
-		after, err = readPageToken(tokens[0])
-		if err != nil {
-			writeError(w, http.StatusBadRequest)
-			return
-		}
+		token = tokens[0]
 	}
 
-	items, next, err := app.store.ListReady(r.Context(), after, pageSize)
+	items, next, err := app.store.ListReady(r.Context(), token, pageSize)
+	if errors.Is(err, photostore.ErrInvalidPageToken) {
+		writeError(w, http.StatusBadRequest)
+		return
+	}
 	if err != nil {
 		slog.ErrorContext(r.Context(), "list photos", "error", err)
 		writeError(w, http.StatusInternalServerError)
@@ -100,7 +96,7 @@ func (app *handler) list(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, page{
 		Photos:        items,
-		NextPageToken: base64.RawURLEncoding.EncodeToString([]byte(next)),
+		NextPageToken: next,
 	})
 }
 
@@ -182,49 +178,18 @@ func (app *handler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	started, err := app.store.BeginDelete(ctx, id)
+	found, err := photostore.DeletePhoto(ctx, app.store, app.files, id)
 	if err != nil {
-		slog.ErrorContext(ctx, "mark photo for deletion", "error", err)
+		slog.ErrorContext(ctx, "delete photo", "error", err)
 		writeError(w, http.StatusInternalServerError)
 		return
 	}
-	if !started {
+	if !found {
 		writeError(w, http.StatusNotFound)
 		return
 	}
 
-	if err := app.files.DeletePhoto(ctx, id); err != nil {
-		slog.ErrorContext(ctx, "delete photo files", "error", err)
-		writeError(w, http.StatusInternalServerError)
-		return
-	}
-	if err := app.store.FinishDelete(ctx, id); err != nil {
-		slog.ErrorContext(ctx, "remove photo record", "error", err)
-		writeError(w, http.StatusInternalServerError)
-		return
-	}
-
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func readPageToken(token string) (string, error) {
-	if len(token) > base64.RawURLEncoding.EncodedLen(len(photostore.UploadTimeLayout)+1+128) {
-		return "", errInvalidPageToken
-	}
-
-	key, err := base64.RawURLEncoding.Strict().DecodeString(token)
-	if err != nil {
-		return "", errInvalidPageToken
-	}
-
-	stamp, id, ok := strings.Cut(string(key), "#")
-	if !ok || len(stamp) != len(photostore.UploadTimeLayout) || !photostore.ValidID(id) {
-		return "", errInvalidPageToken
-	}
-	if _, err := time.Parse(photostore.UploadTimeLayout, stamp); err != nil {
-		return "", errInvalidPageToken
-	}
-	return string(key), nil
 }
 
 func writeError(w http.ResponseWriter, status int) {

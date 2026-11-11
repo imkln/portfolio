@@ -13,7 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/imkln/portfolio/src/internal/photos"
+	"github.com/imkln/portfolio/src/backend/internal/shared/photos"
+	"github.com/imkln/portfolio/src/backend/internal/worker"
 )
 
 func main() {
@@ -32,7 +33,7 @@ func main() {
 
 	store := photos.NewDynamoStore(dynamodb.NewFromConfig(awsConfig), table)
 	files := photos.NewS3Store(s3.NewFromConfig(awsConfig), bucket)
-	worker := newWorker(store, files)
+	processor := worker.New(store, files)
 
 	lambda.Start(func(ctx context.Context, event events.SQSEvent) error {
 		for _, message := range event.Records {
@@ -46,7 +47,7 @@ func main() {
 					continue
 				}
 
-				err := worker.process(ctx, record.S3.Object.URLDecodedKey, record.EventTime)
+				err := processor.Process(ctx, record.S3.Object.URLDecodedKey, record.EventTime)
 				if errors.Is(err, photos.ErrInvalidUpload) {
 					slog.WarnContext(ctx, "ignored invalid photo upload")
 					continue

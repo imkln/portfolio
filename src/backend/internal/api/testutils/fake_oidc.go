@@ -13,7 +13,7 @@ import (
 
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
-	"github.com/imkln/portfolio/src/api/internal/auth"
+	"github.com/imkln/portfolio/src/backend/internal/api/auth"
 )
 
 const (

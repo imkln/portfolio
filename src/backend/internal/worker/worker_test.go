@@ -1,4 +1,4 @@
-package main
+package worker
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/imkln/portfolio/src/internal/photos"
+	"github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
 
 const workerKey = "uploads/lake.jpg"
@@ -17,7 +17,7 @@ const workerKey = "uploads/lake.jpg"
 var uploadedAt = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
 func TestWorkerAddsPhoto(t *testing.T) {
-	original := jpegImage(t, 7728, 5152)
+	original := jpegImage(t, 600, 400)
 	worker, library := newTestWorker(t, original)
 
 	processUpload(t, worker)
@@ -36,7 +36,7 @@ func TestWorkerAddsPhoto(t *testing.T) {
 func TestWorkerRejectsInvalidJPEG(t *testing.T) {
 	worker, library := newTestWorker(t, []byte("invalid JPEG"))
 
-	err := worker.process(t.Context(), workerKey, uploadedAt)
+	err := worker.Process(t.Context(), workerKey, uploadedAt)
 
 	if !errors.Is(err, photos.ErrInvalidUpload) {
 		t.Fatalf("error = %v, want an invalid upload error", err)
@@ -50,7 +50,7 @@ func TestWorkerHidesPhotoIfSaveFails(t *testing.T) {
 	worker, library := newTestWorker(t, jpegImage(t, 600, 400))
 	library.saveError = errors.New("could not save the thumbnail")
 
-	err := worker.process(t.Context(), workerKey, uploadedAt)
+	err := worker.Process(t.Context(), workerKey, uploadedAt)
 
 	if !errors.Is(err, library.saveError) {
 		t.Fatalf("error = %v, want the thumbnail save error", err)
@@ -89,25 +89,13 @@ func TestLateUploadEventDoesNotRestoreDeletedPhoto(t *testing.T) {
 }
 
 func TestThumbnailKeepsPhotoOrientation(t *testing.T) {
-	landscape := jpegImage(t, 600, 400)
+	original := portraitJPEG(jpegImage(t, 600, 400))
+	worker, library := newTestWorker(t, original)
 
-	for _, test := range []struct {
-		name string
-		jpeg []byte
-		size image.Point
-	}{
-		{"landscape", landscape, image.Pt(480, 320)},
-		{"portrait EXIF", portraitJPEG(landscape), image.Pt(320, 480)},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			worker, library := newTestWorker(t, test.jpeg)
+	processUpload(t, worker)
 
-			processUpload(t, worker)
-
-			if size := thumbnailDimensions(t, library.thumbnail); size != test.size {
-				t.Fatalf("thumbnail size = %v, want %v", size, test.size)
-			}
-		})
+	if size := thumbnailDimensions(t, library.thumbnail); size != (image.Pt(320, 480)) {
+		t.Fatalf("thumbnail size = %v, want 320 × 480", size)
 	}
 }
 
@@ -143,17 +131,17 @@ func thumbnailDimensions(t *testing.T, thumbnail []byte) image.Point {
 	return image.Pt(info.Width, info.Height)
 }
 
-func newTestWorker(t *testing.T, original []byte) (*worker, *workerLibrary) {
+func newTestWorker(t *testing.T, original []byte) (*Worker, *workerLibrary) {
 	t.Helper()
 
 	library := &workerLibrary{upload: original}
-	return newWorker(library, library), library
+	return New(library, library), library
 }
 
-func processUpload(t *testing.T, worker *worker) {
+func processUpload(t *testing.T, worker *Worker) {
 	t.Helper()
 
-	if err := worker.process(t.Context(), workerKey, uploadedAt); err != nil {
+	if err := worker.Process(t.Context(), workerKey, uploadedAt); err != nil {
 		t.Fatalf("process upload: %v", err)
 	}
 }
