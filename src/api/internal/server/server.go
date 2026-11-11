@@ -66,7 +66,7 @@ func New(
 	mux.HandleFunc("GET /collections/{id}", page)
 	mux.Handle("GET /assets/", http.FileServerFS(assets))
 	sessions.Register(mux)
-	collections.Register(mux, collectionStore, sessions.IsOwner)
+	collections.Register(mux, collectionStore, sessions.IsOwner, photoFiles.OriginalURL)
 	photos.Register(mux, photoStore, photoFiles, sessions.IsOwner)
 
 	return securityHeaders(protection.Handler(mux), strings.TrimRight(config.AuthDomain, "/"), uploadOrigin), nil

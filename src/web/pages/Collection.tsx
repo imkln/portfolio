@@ -11,7 +11,10 @@ export default function Collection({
     <main className="collection-page">
       <h1>{collection.title || 'Untitled collection'}</h1>
       <p className="collection-metadata">{collection.metadata}</p>
-      <Cover photoId={collection.coverPhotoId} />
+      <Cover
+        photoId={collection.coverPhotoId}
+        photoUrl={collection.coverPhotoUrl}
+      />
     </main>
   );
 }

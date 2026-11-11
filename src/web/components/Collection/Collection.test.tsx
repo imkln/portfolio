@@ -18,6 +18,7 @@ const collection = {
 const actions = {
   onOpen: () => {},
   onSelect: () => {},
+  onChooseCover: () => {},
   onDelete: () => {},
   onTransform: () => {},
 };

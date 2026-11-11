@@ -6,6 +6,18 @@ import Collection from './pages/Collection';
 import Home from './pages/Home';
 import Photos from './pages/Photos';
 
+async function fetchCollections(signal?: AbortSignal) {
+  const response = await fetch('/api/collections', { signal });
+  if (!response.ok) throw new Error('Could not load collections');
+
+  const data: { collections: CollectionData[] } = await response.json();
+  if (!Array.isArray(data.collections)) {
+    throw new Error('Invalid collections response');
+  }
+
+  return data.collections;
+}
+
 export default function App() {
   const [collections, setCollections] = useState<
     CollectionData[] | 'loading' | 'error'
@@ -22,14 +34,8 @@ export default function App() {
 
     async function loadCollections() {
       try {
-        const response = await fetch('/api/collections', { signal });
-        if (!response.ok) throw new Error('Could not load collections');
-
-        const data: { collections: CollectionData[] } = await response.json();
-        if (!Array.isArray(data.collections))
-          throw new Error('Invalid collections response');
-
-        if (!signal.aborted) setCollections(data.collections);
+        const loaded = await fetchCollections(signal);
+        if (!signal.aborted) setCollections(loaded);
       } catch {
         if (!signal.aborted) setCollections('error');
       }
@@ -52,14 +58,20 @@ export default function App() {
   }, []);
 
   async function saveCollections(updated: CollectionData[]) {
+    const changes = updated.map(({ coverPhotoUrl, ...collection }) => collection);
     const response = await fetch('/api/collections', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ collections: updated }),
+      body: JSON.stringify({ collections: changes }),
     });
     if (!response.ok) throw new Error('Could not save collections');
 
-    setCollections(updated);
+    try {
+      setCollections(await fetchCollections());
+    } catch {
+      // The save succeeded, so keep the edits if refreshing the URLs fails.
+      setCollections(updated);
+    }
   }
 
   useEffect(() => {

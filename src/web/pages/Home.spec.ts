@@ -1,11 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { mockApi } from '../testutils/fakeApi';
+import { sampleCollections, sampleCoverPhoto } from '../testutils/sampleCollections';
 
 test('can open a collection from its cover in view mode', async ({ page }) => {
   await mockApi(page);
   await page.goto('/');
 
   const collection = page.getByRole('article', { name: 'Along Superior' });
+  await expect(collection.getByRole('img', { name: 'Collection cover' }))
+    .toHaveAttribute('src', sampleCoverPhoto);
 
   await collection.getByRole('link').click();
 
@@ -13,7 +16,55 @@ test('can open a collection from its cover in view mode', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: 'Along Superior', level: 1 }),
   ).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Collection cover' }))
+    .toHaveAttribute('src', sampleCoverPhoto);
 });
+
+test('should display an empty cover at a 3:2 aspect ratio', async ({ page }) => {
+  await mockApi(page, {
+    collections: [{ ...sampleCollections[0], coverPhotoId: null, coverPhotoUrl: undefined }],
+  });
+  await page.goto('/');
+
+  const placeholder = page.getByText('No cover photo', { exact: true });
+  await expect(placeholder).toBeVisible();
+
+  const ratio = await placeholder.evaluate((element) => {
+    const { width, height } = element.getBoundingClientRect();
+    return width / height;
+  });
+
+  expect(ratio).toBeCloseTo(3 / 2, 2);
+});
+
+for (const { shape, width, height } of [
+  { shape: 'portrait', width: 200, height: 300 },
+  { shape: 'square', width: 300, height: 300 },
+  { shape: 'wide', width: 400, height: 200 },
+]) {
+  test(`should display a ${shape} cover at its original aspect ratio`, async ({ page }) => {
+    const cover = sampleCollections[0];
+    const image = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" /></svg>`;
+    await mockApi(page, {
+      collections: [{ ...cover, coverPhotoUrl: `data:image/svg+xml,${encodeURIComponent(image)}` }],
+    });
+
+    for (const path of ['/', `/collections/${cover.id}`]) {
+      await page.goto(path);
+      const ratios = await page.getByRole('img', { name: 'Collection cover' })
+        .evaluate(async (image: HTMLImageElement) => {
+          await image.decode();
+          const bounds = image.getBoundingClientRect();
+          return {
+            rendered: bounds.width / bounds.height,
+            original: image.naturalWidth / image.naturalHeight,
+          };
+        });
+
+      expect(ratios.rendered).toBeCloseTo(ratios.original, 2);
+    }
+  });
+}
 
 test('should show collections returned by the API', async ({ page }) => {
   await mockApi(page, {

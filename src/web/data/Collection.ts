@@ -3,6 +3,7 @@ export type Collection = {
   title: string;
   metadata: string;
   coverPhotoId: string | null;
+  coverPhotoUrl?: string;
   x: number;
   y: number;
   width: number;

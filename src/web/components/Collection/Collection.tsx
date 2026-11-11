@@ -14,6 +14,7 @@ type Props = {
   onOpen: (event: MouseEvent<HTMLAnchorElement>) => void;
   onSelect: () => void;
   onChange: (change: Partial<CollectionData>) => void;
+  onChooseCover: () => void;
   onDelete: () => void;
   onTransform: (event: PointerEvent<HTMLElement>, action: Transform) => void;
 };
@@ -26,10 +27,11 @@ export default function Collection({
   onOpen,
   onSelect,
   onChange,
+  onChooseCover,
   onDelete,
   onTransform,
 }: Props) {
-  const { id, title, metadata, coverPhotoId, x, y, width } = collection;
+  const { id, title, metadata, coverPhotoId, coverPhotoUrl, x, y, width } = collection;
   const displayTitle = title || 'Untitled collection';
   const layout = {
     '--x': x,
@@ -56,7 +58,7 @@ export default function Collection({
               selected ? (event) => onTransform(event, 'move') : undefined
             }
           >
-            <Cover photoId={coverPhotoId} />
+            <Cover photoId={coverPhotoId} photoUrl={coverPhotoUrl} />
           </button>
         ) : (
           <a
@@ -65,12 +67,29 @@ export default function Collection({
             aria-label={displayTitle}
             onClick={onOpen}
           >
-            <Cover photoId={coverPhotoId} />
+            <Cover photoId={coverPhotoId} photoUrl={coverPhotoUrl} />
           </a>
         )}
 
         {selected && (
           <>
+            <button
+              type="button"
+              className="choose-cover"
+              aria-label="Choose cover photo"
+              aria-haspopup="dialog"
+              title="Choose cover photo"
+              onClick={(event) => {
+                event.currentTarget.focus();
+                onChooseCover();
+              }}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <circle cx="9" cy="9" r="1.5" />
+                <path d="m3 17 5-4 3 2 5-5 5 5" />
+              </svg>
+            </button>
             <button
               type="button"
               className="delete-collection"

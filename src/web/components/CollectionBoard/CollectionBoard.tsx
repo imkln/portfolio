@@ -1,9 +1,10 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { MouseEvent } from 'react';
 import type { Collection } from '../../data/Collection';
+import useCollectionGestures from '../../hooks/useCollectionGestures';
 import ActionBar from '../ActionBar/ActionBar';
 import CollectionItem from '../Collection/Collection';
-import useCollectionGestures from './useCollectionGestures';
+import PhotoPicker from '../PhotoPicker/PhotoPicker';
 import './CollectionBoard.css';
 
 const smallScreen = '(max-width: 720px)';
@@ -33,6 +34,7 @@ export default function CollectionBoard({
   );
   const [draft, setDraft] = useState<Collection[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pickerCollectionId, setPickerCollectionId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const board = useRef<HTMLElement>(null);
@@ -45,7 +47,7 @@ export default function CollectionBoard({
       : collections;
   const { startDrag, dragTo, stopDrag, nudge } = useCollectionGestures({
     board,
-    editable: editing && !saving,
+    editable: editing && !saving && !pickerCollectionId,
     selected: items.find((item) => item.id === selectedId),
     update,
   });
@@ -158,6 +160,7 @@ export default function CollectionBoard({
               onOpen={onOpen}
               onSelect={() => setSelectedId(item.id)}
               onChange={(change) => update(item.id, change)}
+              onChooseCover={() => setPickerCollectionId(item.id)}
               onDelete={() => {
                 setDraft(
                   (current) =>
@@ -170,6 +173,18 @@ export default function CollectionBoard({
           ))}
         </section>
       </fieldset>
+      {pickerCollectionId && (
+        <PhotoPicker
+          title="Choose cover photo"
+          onClose={() => setPickerCollectionId(null)}
+          onChoose={(photo) =>
+            update(pickerCollectionId, {
+              coverPhotoId: photo.id,
+              coverPhotoUrl: photo.original,
+            })
+          }
+        />
+      )}
     </main>
   );
 }

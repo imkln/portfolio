@@ -19,15 +19,20 @@
   border-radius: 0;
 }
 
+.cover-image,
 .cover-empty {
   display: block;
   width: 100%;
-  aspect-ratio: 3 / 2;
+}
+
+.cover-image {
+  height: auto;
 }
 
 .cover-empty {
   display: grid;
   place-items: center;
+  aspect-ratio: 3 / 2;
   border: 1px dashed var(--line);
   background: var(--surface);
   color: var(--muted);
@@ -46,17 +51,26 @@
   scale: none;
 }
 
+.choose-cover,
 .delete-collection {
   display: grid;
   place-items: center;
   position: absolute;
   top: 8px;
-  right: 8px;
   width: 36px;
   height: 36px;
   padding: 0;
 }
 
+.choose-cover {
+  left: 8px;
+}
+
+.delete-collection {
+  right: 8px;
+}
+
+.choose-cover svg,
 .delete-collection svg {
   width: 17px;
   fill: none;

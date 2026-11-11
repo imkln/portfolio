@@ -14,6 +14,7 @@ import (
 )
 
 const savedCollections = `{"collections":[{"id":"lake","title":"Lake","metadata":"Autumn","coverPhotoId":"shore","x":0,"y":0.5,"width":0.3}]}`
+const savedCollectionsResponse = `{"collections":[{"id":"lake","title":"Lake","metadata":"Autumn","coverPhotoId":"shore","coverPhotoUrl":"https://photos.example.test/originals/shore.jpg?signature=test","x":0,"y":0.5,"width":0.3}]}`
 const changedCollections = `{"collections":[{"id":"forest","title":"Forest","metadata":"Spring","coverPhotoId":null,"x":0.2,"y":0.9,"width":0.45}]}`
 const emptyCollections = `{"collections":[]}`
 
@@ -22,7 +23,7 @@ func TestNonOwnerCanListCollections(t *testing.T) {
 
 	response := testutils.Request(fixture.Mux, http.MethodGet, "/api/collections", "")
 
-	checkCollections(t, response, savedCollections)
+	checkCollections(t, response, savedCollectionsResponse)
 }
 
 func TestCollectionsReturnsEmptyListWhenNoneAreSaved(t *testing.T) {
@@ -82,7 +83,7 @@ func TestNonOwnerCannotReplaceCollections(t *testing.T) {
 			response := testutils.Request(fixture.Mux, http.MethodPut, "/api/collections", changedCollections, cookies...)
 
 			testutils.CheckStatus(t, response, http.StatusUnauthorized)
-			checkCollections(t, testutils.Request(fixture.Mux, http.MethodGet, "/api/collections", ""), savedCollections)
+			checkCollections(t, testutils.Request(fixture.Mux, http.MethodGet, "/api/collections", ""), savedCollectionsResponse)
 		})
 	}
 }
@@ -103,7 +104,7 @@ func TestCollectionsRejectInvalidReplacements(t *testing.T) {
 			response := testutils.Request(fixture.Mux, http.MethodPut, "/api/collections", test.config, cookie)
 
 			testutils.CheckStatus(t, response, http.StatusBadRequest)
-			checkCollections(t, testutils.Request(fixture.Mux, http.MethodGet, "/api/collections", ""), savedCollections)
+			checkCollections(t, testutils.Request(fixture.Mux, http.MethodGet, "/api/collections", ""), savedCollectionsResponse)
 		})
 	}
 }
@@ -181,6 +182,8 @@ func newFixture(t *testing.T, store collections.Store, email string) *testutils.
 	t.Helper()
 
 	fixture := testutils.NewAuth(t, email)
-	collections.Register(fixture.Mux, store, fixture.Sessions.IsOwner)
+	collections.Register(fixture.Mux, store, fixture.Sessions.IsOwner, func(_ context.Context, id string) (string, error) {
+		return "https://photos.example.test/originals/" + id + ".jpg?signature=test", nil
+	})
 	return fixture
 }
