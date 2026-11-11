@@ -58,7 +58,7 @@ export default function App() {
   }, []);
 
   async function saveCollections(updated: CollectionData[]) {
-    const changes = updated.map(({ coverThumbnailUrl, ...collection }) => collection);
+    const changes = updated.map(({ coverPhotoUrl, ...collection }) => collection);
     const response = await fetch('/api/collections', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

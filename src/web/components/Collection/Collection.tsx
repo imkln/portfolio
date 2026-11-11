@@ -31,7 +31,7 @@ export default function Collection({
   onDelete,
   onTransform,
 }: Props) {
-  const { id, title, metadata, coverPhotoId, coverThumbnailUrl, x, y, width } = collection;
+  const { id, title, metadata, coverPhotoId, coverPhotoUrl, x, y, width } = collection;
   const displayTitle = title || 'Untitled collection';
   const layout = {
     '--x': x,
@@ -58,7 +58,7 @@ export default function Collection({
               selected ? (event) => onTransform(event, 'move') : undefined
             }
           >
-            <Cover photoId={coverPhotoId} thumbnail={coverThumbnailUrl} />
+            <Cover photoId={coverPhotoId} photoUrl={coverPhotoUrl} />
           </button>
         ) : (
           <a
@@ -67,7 +67,7 @@ export default function Collection({
             aria-label={displayTitle}
             onClick={onOpen}
           >
-            <Cover photoId={coverPhotoId} thumbnail={coverThumbnailUrl} />
+            <Cover photoId={coverPhotoId} photoUrl={coverPhotoUrl} />
           </a>
         )}
 

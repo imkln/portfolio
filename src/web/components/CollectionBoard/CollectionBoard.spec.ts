@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { sampleCollections, sampleCoverThumbnail } from '../../testutils/sampleCollections';
+import { sampleCollections, sampleCoverPhoto } from '../../testutils/sampleCollections';
 import { samplePhotos } from '../../testutils/samplePhotos';
 import { mockApi, mockPhotos } from '../../testutils/fakeApi';
 
@@ -172,7 +172,7 @@ test('can choose a collection cover', async ({ page }) => {
 
   await expect(picker).toBeHidden();
   await expect(first.getByRole('img', { name: 'Collection cover' }))
-    .toHaveAttribute('src', '/api/photos/sample-1/thumbnail');
+    .toHaveAttribute('src', '/api/photos/sample-1');
 });
 
 test('can close the cover picker without changing the cover', async ({ page }) => {
@@ -180,14 +180,14 @@ test('can close the cover picker without changing the cover', async ({ page }) =
   const first = await selectFirst(page);
   const button = first.getByRole('button', { name: 'Choose cover photo' });
   const cover = first.getByRole('img', { name: 'Collection cover' });
-  await expect(cover).toHaveAttribute('src', sampleCoverThumbnail);
+  await expect(cover).toHaveAttribute('src', sampleCoverPhoto);
   await button.click();
   const picker = page.getByRole('dialog', { name: 'Choose cover photo' });
   await expect(picker).toBeVisible();
   await page.keyboard.press('Escape');
 
   await expect(picker).toBeHidden();
-  await expect(cover).toHaveAttribute('src', sampleCoverThumbnail);
+  await expect(cover).toHaveAttribute('src', sampleCoverPhoto);
   await expect(button).toBeFocused();
 });
 
@@ -202,7 +202,7 @@ test('should send edits to the API and return to view mode', async ({
         route.request().postDataJSON();
       savedCollections = collections.map((item) =>
         item.coverPhotoId === 'sample-1'
-          ? { ...item, coverThumbnailUrl: samplePhotos[0].thumbnail }
+          ? { ...item, coverPhotoUrl: samplePhotos[0].original }
           : item,
       );
       return route.fulfill({ status: 204 });
@@ -258,7 +258,7 @@ test('should send edits to the API and return to view mode', async ({
     metadata: 'North Shore · Nov 2025',
     coverPhotoId: 'sample-1',
   });
-  expect(edited).not.toHaveProperty('coverThumbnailUrl');
+  expect(edited).not.toHaveProperty('coverPhotoUrl');
   expect(edited.x).toBeCloseTo((start.x - frame.x + 48) / frame.width, 3);
   expect(edited.y).toBeCloseTo((start.y - frame.y + 32) / frame.width, 3);
   expect(edited.width).toBeCloseTo((start.width + 60) / frame.width, 3);
@@ -270,7 +270,7 @@ test('should send edits to the API and return to view mode', async ({
   await expect(saved.getByText('North Shore · Nov 2025')).toBeVisible();
   await expect(saved.getByRole('link')).toBeVisible();
   await expect(saved.getByRole('img', { name: 'Collection cover' }))
-    .toHaveAttribute('src', samplePhotos[0].thumbnail);
+    .toHaveAttribute('src', samplePhotos[0].original);
 
   const position = await bounds(saved);
   expect(position.x - start.x).toBeCloseTo(48, 0);

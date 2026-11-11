@@ -180,7 +180,7 @@ export default function CollectionBoard({
           onChoose={(photo) =>
             update(pickerCollectionId, {
               coverPhotoId: photo.id,
-              coverThumbnailUrl: photo.thumbnail,
+              coverPhotoUrl: photo.original,
             })
           }
         />

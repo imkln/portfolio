@@ -29,7 +29,7 @@ type Collection struct {
 
 type listedCollection struct {
 	Collection
-	CoverThumbnailURL string `json:"coverThumbnailUrl,omitempty"`
+	CoverPhotoURL string `json:"coverPhotoUrl,omitempty"`
 }
 
 type Store interface {
@@ -56,11 +56,11 @@ func (app *handler) list(w http.ResponseWriter, r *http.Request) {
 	for _, collection := range config.Collections {
 		item := listedCollection{Collection: collection}
 		if id := collection.CoverPhotoID; id != nil && photos.ValidID(*id) {
-			thumbnail, err := app.thumbnailURL(r.Context(), *id)
+			original, err := app.originalURL(r.Context(), *id)
 			if err != nil {
-				slog.ErrorContext(r.Context(), "sign collection cover thumbnail", "error", err)
+				slog.ErrorContext(r.Context(), "sign collection cover", "error", err)
 			} else {
-				item.CoverThumbnailURL = thumbnail
+				item.CoverPhotoURL = original
 			}
 		}
 		items = append(items, item)
@@ -125,18 +125,18 @@ func (item Collection) validLayout() bool {
 }
 
 type handler struct {
-	store        Store
-	isOwner      func(*http.Request) bool
-	thumbnailURL func(context.Context, string) (string, error)
+	store       Store
+	isOwner     func(*http.Request) bool
+	originalURL func(context.Context, string) (string, error)
 }
 
 func Register(
 	mux *http.ServeMux,
 	store Store,
 	isOwner func(*http.Request) bool,
-	thumbnailURL func(context.Context, string) (string, error),
+	originalURL func(context.Context, string) (string, error),
 ) {
-	app := handler{store: store, isOwner: isOwner, thumbnailURL: thumbnailURL}
+	app := handler{store: store, isOwner: isOwner, originalURL: originalURL}
 	mux.HandleFunc("GET /api/collections", app.list)
 	mux.HandleFunc("PUT /api/collections", app.replace)
 }

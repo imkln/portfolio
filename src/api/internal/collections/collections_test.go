@@ -14,7 +14,7 @@ import (
 )
 
 const savedCollections = `{"collections":[{"id":"lake","title":"Lake","metadata":"Autumn","coverPhotoId":"shore","x":0,"y":0.5,"width":0.3}]}`
-const savedCollectionsResponse = `{"collections":[{"id":"lake","title":"Lake","metadata":"Autumn","coverPhotoId":"shore","coverThumbnailUrl":"https://photos.example.test/thumbnails/shore.jpg?signature=test","x":0,"y":0.5,"width":0.3}]}`
+const savedCollectionsResponse = `{"collections":[{"id":"lake","title":"Lake","metadata":"Autumn","coverPhotoId":"shore","coverPhotoUrl":"https://photos.example.test/originals/shore.jpg?signature=test","x":0,"y":0.5,"width":0.3}]}`
 const changedCollections = `{"collections":[{"id":"forest","title":"Forest","metadata":"Spring","coverPhotoId":null,"x":0.2,"y":0.9,"width":0.45}]}`
 const emptyCollections = `{"collections":[]}`
 
@@ -183,7 +183,7 @@ func newFixture(t *testing.T, store collections.Store, email string) *testutils.
 
 	fixture := testutils.NewAuth(t, email)
 	collections.Register(fixture.Mux, store, fixture.Sessions.IsOwner, func(_ context.Context, id string) (string, error) {
-		return "https://photos.example.test/thumbnails/" + id + ".jpg?signature=test", nil
+		return "https://photos.example.test/originals/" + id + ".jpg?signature=test", nil
 	})
 	return fixture
 }

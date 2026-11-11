@@ -1,19 +1,19 @@
 import { useState } from 'react';
 
-export default function Cover({ photoId, thumbnail }: {
+export default function Cover({ photoId, photoUrl }: {
   photoId: string | null;
-  thumbnail?: string;
+  photoUrl?: string;
 }) {
-  const [failedThumbnail, setFailedThumbnail] = useState<string>();
+  const [failedUrl, setFailedUrl] = useState<string>();
 
-  if (thumbnail && thumbnail !== failedThumbnail) {
+  if (photoUrl && photoUrl !== failedUrl) {
     return (
       <img
         className="cover-image"
-        src={thumbnail}
+        src={photoUrl}
         alt="Collection cover"
         draggable={false}
-        onError={() => setFailedThumbnail(thumbnail)}
+        onError={() => setFailedUrl(photoUrl)}
       />
     );
   }

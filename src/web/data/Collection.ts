@@ -3,7 +3,7 @@ export type Collection = {
   title: string;
   metadata: string;
   coverPhotoId: string | null;
-  coverThumbnailUrl?: string;
+  coverPhotoUrl?: string;
   x: number;
   y: number;
   width: number;

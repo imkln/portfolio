@@ -13,7 +13,7 @@ export default function Collection({
       <p className="collection-metadata">{collection.metadata}</p>
       <Cover
         photoId={collection.coverPhotoId}
-        thumbnail={collection.coverThumbnailUrl}
+        photoUrl={collection.coverPhotoUrl}
       />
     </main>
   );
