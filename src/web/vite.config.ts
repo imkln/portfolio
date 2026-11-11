@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
+import { sampleCanvasCollections } from './testutils/sampleCollections.ts';
 import { createPhotoApi, isPhotoRequest } from './testutils/photoApi.ts';
 
 export default defineConfig(({ mode }) => ({
@@ -9,7 +10,7 @@ export default defineConfig(({ mode }) => ({
       name: 'photos-preview',
       apply: 'serve',
       configureServer(server) {
-        if (mode !== 'photos-preview') return;
+        if (mode !== 'photos-preview' && mode !== 'collection-canvas-preview') return;
 
         const photos = createPhotoApi();
         server.middlewares.use(async (request, response, next) => {
@@ -43,7 +44,7 @@ export default defineConfig(({ mode }) => ({
             url.pathname === '/api/session'
               ? { owner: true }
               : url.pathname === '/api/collections'
-                ? { collections: [] }
+                ? { collections: mode === 'collection-canvas-preview' ? sampleCanvasCollections : [] }
                 : undefined;
           if (!data) return next();
 
