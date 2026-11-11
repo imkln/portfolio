@@ -23,16 +23,16 @@
 .cover-empty {
   display: block;
   width: 100%;
-  aspect-ratio: 3 / 2;
 }
 
 .cover-image {
-  object-fit: cover;
+  height: auto;
 }
 
 .cover-empty {
   display: grid;
   place-items: center;
+  aspect-ratio: 3 / 2;
   border: 1px dashed var(--line);
   background: var(--surface);
   color: var(--muted);

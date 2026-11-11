@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import type { KeyboardEvent, PointerEvent, RefObject } from 'react';
-import type { Collection } from '../../data/Collection';
-import type { Transform } from '../Collection/Collection';
+import type { Collection } from '../data/Collection';
+import type { Transform } from '../components/Collection/Collection';
 
 const nudgePixels = 8;
 const minimumWidth = 0.12;
@@ -20,6 +20,7 @@ type Drag = {
   clientX: number;
   clientY: number;
   boardWidth: number;
+  coverRatio: number;
 };
 
 type Options = {
@@ -45,6 +46,9 @@ export default function useCollectionGestures({
     const boardWidth = board.current?.getBoundingClientRect().width;
     if (!editable || event.button !== 0 || !boardWidth) return;
 
+    const cover = event.currentTarget.parentElement?.getBoundingClientRect();
+    if (!cover?.height) return;
+
     event.currentTarget.setPointerCapture(event.pointerId);
     drag.current = {
       pointerId: event.pointerId,
@@ -53,6 +57,7 @@ export default function useCollectionGestures({
       clientX: event.clientX,
       clientY: event.clientY,
       boardWidth,
+      coverRatio: cover.width / cover.height,
     };
   }
 
@@ -69,7 +74,7 @@ export default function useCollectionGestures({
       return;
     }
 
-    const vertical = dy * 1.5;
+    const vertical = dy * gesture.coverRatio;
     const delta = Math.abs(dx) >= Math.abs(vertical) ? dx : vertical;
     const width = Math.max(
       minimumWidth,

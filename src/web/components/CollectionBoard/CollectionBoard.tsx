@@ -1,10 +1,10 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { MouseEvent } from 'react';
 import type { Collection } from '../../data/Collection';
+import useCollectionGestures from '../../hooks/useCollectionGestures';
 import ActionBar from '../ActionBar/ActionBar';
 import CollectionItem from '../Collection/Collection';
 import PhotoPicker from '../PhotoPicker/PhotoPicker';
-import useCollectionGestures from './useCollectionGestures';
 import './CollectionBoard.css';
 
 const smallScreen = '(max-width: 720px)';
