@@ -13,10 +13,8 @@ test('can open a collection from its cover in view mode', async ({ page }) => {
   await collection.getByRole('link').click();
 
   await expect(page).toHaveURL(/\/collections\/along-superior$/);
-  await expect(
-    page.getByRole('heading', { name: 'Along Superior', level: 1 }),
-  ).toBeVisible();
-  await expect(page.getByRole('img', { name: 'Collection cover' }))
+  const items = page.getByRole('region', { name: 'Collection canvas' });
+  await expect(items.getByRole('img', { name: 'Collection cover' }))
     .toHaveAttribute('src', sampleCoverPhoto);
 });
 

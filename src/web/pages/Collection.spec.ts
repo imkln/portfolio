@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mockApi, mockPhotos } from '../testutils/fakeApi';
-import { captionText, sampleCanvasCollections } from '../testutils/sampleCollections';
+import { captionText, sampleCollectionItems } from '../testutils/sampleCollections';
 
 async function resizeCaption(page: Page, caption: Locator, dx: number, dy: number) {
   await caption.getByRole('button', { name: 'Select caption' }).click();
@@ -19,7 +19,7 @@ async function resizeCaption(page: Page, caption: Locator, dx: number, dy: numbe
 
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1200, height: 850 });
-  await mockApi(page, { owner: true, collections: sampleCanvasCollections });
+  await mockApi(page, { owner: true, itemsByCollection: { 'along-superior': sampleCollectionItems } });
   await page.goto('/collections/along-superior');
 });
 
@@ -73,8 +73,8 @@ test('can add and save a photo on a collection canvas', async ({ page }) => {
   await picker.getByRole('button', { name: 'Photo 1', exact: true }).click();
   await page.getByRole('button', { name: 'Save' }).click();
 
-  await page.getByRole('link', { name: 'Home', exact: true }).click();
-  await page.getByRole('link', { name: 'Along Superior' }).click();
+  await expect(page.getByRole('button', { name: 'Edit canvas' })).toBeVisible();
+  await page.reload();
 
   const photos = page.getByRole('article', { name: 'Photo', exact: true });
   await expect(photos).toHaveCount(2);

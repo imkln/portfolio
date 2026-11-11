@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { MouseEvent } from 'react';
 import Header from './components/Header/Header';
-import type { CanvasItem, Collection as CollectionData } from './data/Collection';
+import type { Collection as CollectionData } from './data/Collection';
 import Collection from './pages/Collection';
 import Home from './pages/Home';
 import Photos from './pages/Photos';
@@ -24,9 +24,7 @@ export default function App() {
   >('loading');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [path, setPath] = useState(window.location.pathname);
-  const collection = Array.isArray(collections)
-    ? collections.find(({ id }) => path === `/collections/${id}`)
-    : undefined;
+  const collectionId = /^\/collections\/([a-z0-9-]+)\/?$/.exec(path)?.[1];
 
   useEffect(() => {
     const controller = new AbortController();
@@ -58,7 +56,7 @@ export default function App() {
   }, []);
 
   async function saveCollections(updated: CollectionData[]) {
-    const changes = updated.map(({ coverPhotoUrl, canvas, ...collection }) => collection);
+    const changes = updated.map(({ coverPhotoUrl, ...collection }) => collection);
     const response = await fetch('/api/collections', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -72,14 +70,6 @@ export default function App() {
       // The save succeeded, so keep the edits if refreshing the URLs fails.
       setCollections(updated);
     }
-  }
-
-  async function savePreviewCanvas(id: string, items: CanvasItem[]) {
-    setCollections((current) =>
-      Array.isArray(current)
-        ? current.map((item) => item.id === id ? { ...item, canvas: { items } } : item)
-        : current,
-    );
   }
 
   useEffect(() => {
@@ -111,7 +101,7 @@ export default function App() {
   return (
     <>
       <Header path={path} signedIn={signedIn} onNavigate={navigate} />
-      <div className={collection && !collection.canvas ? 'frame collection-frame' : 'frame'}>
+      <div className="frame">
         {path === '/photos' ? (
           signedIn === true ? (
             <Photos />
@@ -124,12 +114,11 @@ export default function App() {
               )}
             </main>
           )
-        ) : collection ? (
+        ) : collectionId ? (
           <Collection
-            key={collection.id}
-            collection={collection}
+            key={collectionId}
+            id={collectionId}
             canEdit={signedIn === true}
-            onSaveCanvas={(items) => savePreviewCanvas(collection.id, items)}
           />
         ) : (
           <Home

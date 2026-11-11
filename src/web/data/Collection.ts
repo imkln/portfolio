@@ -14,7 +14,6 @@ export type Collection = BoardLayout & CoverPhoto & {
   kind?: never;
   title: string;
   metadata: string;
-  canvas?: CanvasConfig;
 };
 
 type CanvasPhoto = BoardLayout & CoverPhoto & { kind: 'photo' };
@@ -33,4 +32,4 @@ export type BoardItemChange = Partial<Omit<BoardLayout, 'id'> & CoverPhoto & {
   height: number;
 }>;
 
-export type CanvasConfig = { items: CanvasItem[] };
+export type CollectionDetail = Collection & { items: CanvasItem[] };
