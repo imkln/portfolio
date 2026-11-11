@@ -15,7 +15,7 @@ defaults:
 
 jobs:
   build:
-    uses: ./.github/workflows/build-and-test.yml
+    uses: ./.github/workflows/build.yml
 
   deploy:
     needs: build
@@ -28,8 +28,6 @@ jobs:
     env:
       TF_IN_AUTOMATION: 'true'
       TF_VAR_aws_region: ${{ vars.AWS_REGION }}
-      TF_VAR_runtime_boundary_arn: ${{ vars.AWS_RUNTIME_BOUNDARY_ARN }}
-      TF_VAR_cognito_domain_prefix: ${{ vars.COGNITO_DOMAIN_PREFIX }}
       TF_VAR_google_client_id: ${{ vars.GOOGLE_CLIENT_ID }}
       TF_VAR_google_client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       TF_VAR_owner_email: ${{ secrets.OWNER_EMAIL }}

@@ -1,16 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { MouseEvent } from 'react';
 import Header from './header/Header';
-import type { Collection as CollectionData } from './collections/CollectionTypes';
-import { fetchCollections, updateCollections } from './collections/collectionsApi';
 import Collection from './collections/Collection';
 import Home from './home/Home';
 import Photos from './photos/Photos';
 
 export default function App() {
-  const [collections, setCollections] = useState<
-    CollectionData[] | 'loading' | 'error'
-  >('loading');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [path, setPath] = useState(window.location.pathname);
   const collectionId = /^\/collections\/([a-z0-9-]+)\/?$/.exec(path)?.[1];
@@ -18,15 +13,6 @@ export default function App() {
   useEffect(() => {
     const controller = new AbortController();
     const { signal } = controller;
-
-    async function loadCollections() {
-      try {
-        const loaded = await fetchCollections(signal);
-        if (!signal.aborted) setCollections(loaded);
-      } catch {
-        if (!signal.aborted) setCollections('error');
-      }
-    }
 
     async function loadSession() {
       try {
@@ -39,21 +25,9 @@ export default function App() {
       }
     }
 
-    void loadCollections();
     void loadSession();
     return () => controller.abort();
   }, []);
-
-  async function saveCollections(updated: CollectionData[]) {
-    await updateCollections(updated);
-
-    try {
-      setCollections(await fetchCollections());
-    } catch {
-      // The save succeeded, so keep the edits if refreshing the URLs fails.
-      setCollections(updated);
-    }
-  }
 
   useEffect(() => {
     function goBackOrForward() {
@@ -104,12 +78,7 @@ export default function App() {
             canEdit={signedIn === true}
           />
         ) : (
-          <Home
-            collections={collections}
-            canEdit={signedIn === true}
-            onSave={saveCollections}
-            onOpen={navigate}
-          />
+          <Home canEdit={signedIn === true} onOpen={navigate} />
         )}
       </div>
     </>

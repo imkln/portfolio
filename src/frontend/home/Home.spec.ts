@@ -18,7 +18,7 @@ test('can open a collection from its cover in view mode', async ({ page }) => {
     .toHaveAttribute('src', sampleCoverPhoto);
 });
 
-test('should show collections returned by the API', async ({ page }) => {
+test('should load collections when opening Home', async ({ page }) => {
   await mockApi(page, {
     collections: [
       {
@@ -33,7 +33,17 @@ test('should show collections returned by the API', async ({ page }) => {
     ],
   });
 
-  await page.goto('/');
+  const listRequests: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/collections') {
+      listRequests.push(request.method());
+    }
+  });
+  await page.goto('/collections/saved-on-the-server');
+  await expect(page.getByRole('region', { name: 'Collection canvas' })).toBeVisible();
+  expect(listRequests).toEqual([]);
+
+  await page.getByRole('link', { name: 'Home' }).click();
 
   await expect(page.getByRole('article')).toHaveCount(1);
   await expect(

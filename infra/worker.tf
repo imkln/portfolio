@@ -1,5 +1,3 @@
-data "aws_caller_identity" "worker" {}
-
 locals {
   worker_timeout = 45
 }
@@ -21,7 +19,7 @@ resource "aws_sqs_queue_policy" "photo_uploads" {
       Resource  = aws_sqs_queue.photo_uploads.arn
       Condition = {
         ArnEquals    = { "aws:SourceArn" = aws_s3_bucket.photos.arn }
-        StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.worker.account_id }
+        StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id }
       }
     }]
   })
@@ -40,9 +38,8 @@ resource "aws_s3_bucket_notification" "photo_uploads" {
 }
 
 resource "aws_iam_role" "worker" {
-  name                 = "${var.application_name}-worker"
-  permissions_boundary = var.runtime_boundary_arn
-  assume_role_policy   = aws_iam_role.api.assume_role_policy
+  name               = "${var.application_name}-worker"
+  assume_role_policy = local.lambda_trust_policy
 }
 
 resource "aws_iam_role_policy" "worker" {

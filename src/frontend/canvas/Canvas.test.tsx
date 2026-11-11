@@ -9,7 +9,6 @@ import {
 import { afterEach, expect, it, vi } from 'vitest';
 import type { CanvasItem } from '../collections/CollectionTypes';
 import Canvas from './Canvas';
-import Home from '../home/Home';
 
 afterEach(cleanup);
 
@@ -36,8 +35,19 @@ const collections = [
 
 function renderBoard() {
   render(
-    <Home
-      collections={collections}
+    <Canvas
+      items={collections}
+      label="Collections"
+      editLabel="Edit collections"
+      emptyMessage="No collections yet."
+      photoPickerTitle="Choose cover photo"
+      addActions={[
+        {
+          label: 'Add collection',
+          idPrefix: 'untitled-collection',
+          create: (layout) => ({ ...layout, title: '', metadata: '', coverPhotoId: null }),
+        },
+      ]}
       canEdit
       onSave={async () => {}}
       onOpen={() => {}}

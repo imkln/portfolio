@@ -1,4 +1,4 @@
-name: Build and Test
+name: Build
 
 on:
   pull_request:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  web:
+  frontend:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -33,7 +33,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: web
+          name: frontend
           path: src/frontend/dist
           retention-days: 1
           if-no-files-found: error
@@ -63,7 +63,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: go-binaries
+          name: backend
           path: |
             build/api
             build/worker
@@ -71,7 +71,7 @@ jobs:
           if-no-files-found: error
 
   infra:
-    needs: [web, backend]
+    needs: [frontend, backend]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -85,17 +85,17 @@ jobs:
 
       - uses: actions/download-artifact@v8
         with:
-          name: web
+          name: frontend
           path: src/frontend/dist
 
       - uses: actions/download-artifact@v8
         with:
-          name: go-binaries
+          name: backend
           path: build
 
-      - run: bash -n ../script/bootstrap.sh && bash -n ../script/package.sh
+      - run: bash -n ../scripts/bootstrap.sh && bash -n ../scripts/package.sh
 
-      - run: bash ../script/package.sh
+      - run: bash ../scripts/package.sh
 
       - run: terraform fmt -check
 

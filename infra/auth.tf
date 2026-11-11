@@ -17,7 +17,7 @@ resource "aws_cognito_user_pool" "owner" {
 }
 
 resource "aws_cognito_user_pool_domain" "login" {
-  domain       = var.cognito_domain_prefix
+  domain       = "${var.application_name}-${data.aws_caller_identity.current.account_id}"
   user_pool_id = aws_cognito_user_pool.owner.id
 }
 

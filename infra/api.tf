@@ -1,14 +1,6 @@
 resource "aws_iam_role" "api" {
-  name                 = "${var.application_name}-api"
-  permissions_boundary = var.runtime_boundary_arn
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Service = "lambda.amazonaws.com" }
-      Action    = "sts:AssumeRole"
-    }]
-  })
+  name               = "${var.application_name}-api"
+  assume_role_policy = local.lambda_trust_policy
 }
 
 resource "aws_iam_role_policy" "api" {
