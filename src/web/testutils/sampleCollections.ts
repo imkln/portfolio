@@ -1,5 +1,5 @@
-import type { Collection } from '../data/Collection';
-import { samplePhotos } from './samplePhotos';
+import type { CanvasItem, Collection } from '../data/Collection.ts';
+import { samplePhotos } from './samplePhotos.ts';
 
 export const sampleCoverPhoto = samplePhotos[1].original;
 
@@ -40,5 +40,28 @@ export const sampleCollections: Collection[] = [
     x: 0.53,
     y: 0.46,
     width: 0.47,
+  },
+];
+
+export const captionText = 'The ore dock stretches out into Lake Superior, where the water meets the last light of the day.';
+
+export const sampleCollectionItems: CanvasItem[] = [
+  {
+    kind: 'photo',
+    id: 'ore-dock-photo',
+    coverPhotoId: samplePhotos[1].id,
+    coverPhotoUrl: sampleCoverPhoto,
+    x: 0,
+    y: 0,
+    width: 0.53,
+  },
+  {
+    kind: 'caption',
+    id: 'dock-caption',
+    text: captionText,
+    x: 0.6,
+    y: 0.08,
+    width: 0.36,
+    height: 0.16,
   },
 ];

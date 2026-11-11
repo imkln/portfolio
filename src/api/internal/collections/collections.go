@@ -25,6 +25,7 @@ type Collection struct {
 	X            *float64 `json:"x"`
 	Y            *float64 `json:"y"`
 	Width        *float64 `json:"width"`
+	Items        *[]Item  `json:"items,omitempty"`
 }
 
 type listedCollection struct {
@@ -34,7 +35,7 @@ type listedCollection struct {
 
 type Store interface {
 	Load(context.Context) (List, error)
-	Save(context.Context, List) error
+	Update(context.Context, func(*List) error) error
 }
 
 const maxListBytes = 256 << 10
@@ -54,16 +55,8 @@ func (app *handler) list(w http.ResponseWriter, r *http.Request) {
 
 	items := make([]listedCollection, 0, len(config.Collections))
 	for _, collection := range config.Collections {
-		item := listedCollection{Collection: collection}
-		if id := collection.CoverPhotoID; id != nil && photos.ValidID(*id) {
-			original, err := app.originalURL(r.Context(), *id)
-			if err != nil {
-				slog.ErrorContext(r.Context(), "sign collection cover", "error", err)
-			} else {
-				item.CoverPhotoURL = original
-			}
-		}
-		items = append(items, item)
+		collection.Items = nil
+		items = append(items, app.withCover(r.Context(), collection))
 	}
 	writeJSON(w, http.StatusOK, struct {
 		Collections []listedCollection `json:"collections"`
@@ -77,24 +70,24 @@ func (app *handler) replace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var config List
-	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxListBytes))
-	decoder.DisallowUnknownFields()
-	if decoder.Decode(&config) != nil || decoder.Decode(new(any)) != io.EOF || !config.valid() {
+	if !decodeUpdate(w, r, &config) || !config.valid() {
 		writeError(w, http.StatusBadRequest)
 		return
 	}
 
-	err := app.store.Save(r.Context(), config)
-	if errors.Is(err, errListTooLarge) {
-		writeError(w, http.StatusBadRequest)
-		return
-	}
-	if err != nil {
-		slog.ErrorContext(r.Context(), "replace collections", "error", err)
-		writeError(w, http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	err := app.store.Update(r.Context(), func(current *List) error {
+		itemsByID := make(map[string]*[]Item, len(current.Collections))
+		for _, collection := range current.Collections {
+			itemsByID[collection.ID] = collection.Items
+		}
+		for index := range config.Collections {
+			collection := &config.Collections[index]
+			collection.Items = itemsByID[collection.ID]
+		}
+		*current = config
+		return nil
+	})
+	writeUpdateResult(w, r, err)
 }
 
 func (config List) valid() bool {
@@ -104,7 +97,7 @@ func (config List) valid() bool {
 
 	ids := make(map[string]bool, len(config.Collections))
 	for _, item := range config.Collections {
-		if !collectionID.MatchString(item.ID) || ids[item.ID] || !item.validLayout() {
+		if !collectionID.MatchString(item.ID) || ids[item.ID] || !validLayout(item.X, item.Y, item.Width) || item.Items != nil {
 			return false
 		}
 		if strings.ContainsAny(item.Title, "\r\n") || strings.ContainsAny(item.Metadata, "\r\n") {
@@ -115,13 +108,50 @@ func (config List) valid() bool {
 	return true
 }
 
-func (item Collection) validLayout() bool {
-	if item.X == nil || item.Y == nil || item.Width == nil {
-		return false
-	}
+func validLayout(x, y, width *float64) bool {
+	return x != nil && y != nil && width != nil &&
+		*x >= 0 && *y >= 0 && *width > 0 && *width <= 1 && *x+*width <= 1+1e-9
+}
 
-	x, y, width := *item.X, *item.Y, *item.Width
-	return x >= 0 && y >= 0 && width > 0 && width <= 1 && x+width <= 1+1e-9
+func decodeUpdate(w http.ResponseWriter, r *http.Request, value any) bool {
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxListBytes))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(value) == nil && decoder.Decode(new(any)) == io.EOF
+}
+
+func writeUpdateResult(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case err == nil:
+		w.WriteHeader(http.StatusNoContent)
+	case errors.Is(err, errListTooLarge):
+		writeError(w, http.StatusBadRequest)
+	case errors.Is(err, errCollectionNotFound):
+		writeError(w, http.StatusNotFound)
+	case errors.Is(err, errConcurrentUpdate):
+		writeError(w, http.StatusConflict)
+	default:
+		slog.ErrorContext(r.Context(), "save collections", "error", err)
+		writeError(w, http.StatusInternalServerError)
+	}
+}
+
+func (app *handler) withCover(ctx context.Context, collection Collection) listedCollection {
+	return listedCollection{
+		Collection:    collection,
+		CoverPhotoURL: app.coverURL(ctx, collection.CoverPhotoID),
+	}
+}
+
+func (app *handler) coverURL(ctx context.Context, id *string) string {
+	if id == nil || !photos.ValidID(*id) {
+		return ""
+	}
+	original, err := app.originalURL(ctx, *id)
+	if err != nil {
+		slog.ErrorContext(ctx, "sign collection photo", "error", err)
+		return ""
+	}
+	return original
 }
 
 type handler struct {
@@ -139,6 +169,8 @@ func Register(
 	app := handler{store: store, isOwner: isOwner, originalURL: originalURL}
 	mux.HandleFunc("GET /api/collections", app.list)
 	mux.HandleFunc("PUT /api/collections", app.replace)
+	mux.HandleFunc("GET /api/collections/{id}", app.get)
+	mux.HandleFunc("PATCH /api/collections/{id}", app.updateItems)
 }
 
 func writeError(w http.ResponseWriter, status int) {

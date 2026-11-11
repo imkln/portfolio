@@ -24,9 +24,7 @@ export default function App() {
   >('loading');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [path, setPath] = useState(window.location.pathname);
-  const collection = Array.isArray(collections)
-    ? collections.find(({ id }) => path === `/collections/${id}`)
-    : undefined;
+  const collectionId = /^\/collections\/([a-z0-9-]+)\/?$/.exec(path)?.[1];
 
   useEffect(() => {
     const controller = new AbortController();
@@ -103,7 +101,7 @@ export default function App() {
   return (
     <>
       <Header path={path} signedIn={signedIn} onNavigate={navigate} />
-      <div className={collection ? 'frame collection-frame' : 'frame'}>
+      <div className="frame">
         {path === '/photos' ? (
           signedIn === true ? (
             <Photos />
@@ -116,8 +114,12 @@ export default function App() {
               )}
             </main>
           )
-        ) : collection ? (
-          <Collection collection={collection} />
+        ) : collectionId ? (
+          <Collection
+            key={collectionId}
+            id={collectionId}
+            canEdit={signedIn === true}
+          />
         ) : (
           <Home
             collections={collections}

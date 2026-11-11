@@ -32,11 +32,6 @@ p {
   padding: 0 var(--page-gutter) 56px;
 }
 
-.collection-frame {
-  max-width: 1200px;
-  margin-inline: auto;
-}
-
 a {
   color: inherit;
   text-decoration: none;

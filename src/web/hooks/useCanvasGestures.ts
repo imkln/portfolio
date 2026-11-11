@@ -1,12 +1,12 @@
 import { useRef } from 'react';
 import type { KeyboardEvent, PointerEvent, RefObject } from 'react';
-import type { Collection } from '../data/Collection';
+import type { BoardItem, BoardItemChange } from '../data/Collection';
 import type { Transform } from '../components/Collection/Collection';
 
 const nudgePixels = 8;
 const minimumWidth = 0.12;
 
-function move(collection: Collection, dx: number, dy: number) {
+function move(collection: BoardItem, dx: number, dy: number) {
   return {
     x: Math.max(0, Math.min(1 - collection.width, collection.x + dx)),
     y: Math.max(0, collection.y + dy),
@@ -16,7 +16,7 @@ function move(collection: Collection, dx: number, dy: number) {
 type Drag = {
   pointerId: number;
   action: Transform;
-  start: Collection;
+  start: BoardItem;
   clientX: number;
   clientY: number;
   boardWidth: number;
@@ -26,11 +26,11 @@ type Drag = {
 type Options = {
   board: RefObject<HTMLElement | null>;
   editable: boolean;
-  selected: Collection | undefined;
-  update: (id: string, change: Partial<Collection>) => void;
+  selected: BoardItem | undefined;
+  update: (id: string, change: BoardItemChange) => void;
 };
 
-export default function useCollectionGestures({
+export default function useCanvasGestures({
   board,
   editable,
   selected,
@@ -41,7 +41,7 @@ export default function useCollectionGestures({
   function startDrag(
     event: PointerEvent<HTMLElement>,
     action: Transform,
-    collection: Collection,
+    collection: BoardItem,
   ) {
     const boardWidth = board.current?.getBoundingClientRect().width;
     if (!editable || event.button !== 0 || !boardWidth) return;
@@ -74,6 +74,14 @@ export default function useCollectionGestures({
       return;
     }
 
+    if (start.kind === 'caption') {
+      update(start.id, {
+        width: Math.max(minimumWidth, Math.min(1 - start.x, start.width + dx)),
+        height: Math.max(0.03, start.height + dy),
+      });
+      return;
+    }
+
     const vertical = dy * gesture.coverRatio;
     const delta = Math.abs(dx) >= Math.abs(vertical) ? dx : vertical;
     const width = Math.max(
@@ -89,7 +97,11 @@ export default function useCollectionGestures({
   }
 
   function nudge(event: KeyboardEvent<HTMLElement>) {
-    if (!editable || event.target instanceof HTMLInputElement) return;
+    if (
+      !editable ||
+      event.target instanceof HTMLInputElement ||
+      event.target instanceof HTMLTextAreaElement
+    ) return;
 
     const directions: Record<string, [number, number]> = {
       ArrowLeft: [-1, 0],

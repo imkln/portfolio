@@ -7,7 +7,9 @@ import {
   within,
 } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import CollectionBoard from './CollectionBoard';
+import type { CanvasItem } from '../../data/Collection';
+import Canvas from './Canvas';
+import Home from '../../pages/Home';
 
 afterEach(cleanup);
 
@@ -34,7 +36,7 @@ const collections = [
 
 function renderBoard() {
   render(
-    <CollectionBoard
+    <Home
       collections={collections}
       canEdit
       onSave={async () => {}}
@@ -109,4 +111,61 @@ it('can delete the selected collection', () => {
     screen.queryByRole('article', { name: 'Along Superior' }),
   ).not.toBeInTheDocument();
   expect(screen.getByRole('article', { name: 'Quiet Water' })).toBeVisible();
+});
+
+
+function renderCollectionCanvas() {
+  render(
+    <Canvas<CanvasItem>
+      items={[]}
+      canEdit
+      label="Collection canvas"
+      editLabel="Edit canvas"
+      emptyMessage="No items yet."
+      photoPickerTitle="Choose photo"
+      addActions={[
+        {
+          label: 'Add caption',
+          idPrefix: 'caption',
+          create: (layout) => ({ ...layout, kind: 'caption', text: 'New caption', height: 0.12 }),
+        },
+        {
+          label: 'Add photo',
+          idPrefix: 'photo',
+          choosePhoto: (layout, photo) => ({
+            ...layout,
+            kind: 'photo',
+            coverPhotoId: photo.id,
+            coverPhotoUrl: photo.original,
+          }),
+        },
+      ]}
+      onSave={async () => {}}
+    />,
+  );
+
+  const canvas = screen.getByRole('region', { name: 'Collection canvas' });
+  vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue(
+    new DOMRect(0, 0, 1000, 650),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Edit canvas' }));
+}
+
+it('shows only the configured add actions', () => {
+  renderCollectionCanvas();
+
+  const actions = screen.getAllByRole('button', { name: /^Add / });
+  expect(actions.map((button) => button.textContent?.trim())).toEqual([
+    '+ Add caption',
+    '+ Add photo',
+  ]);
+});
+
+it('can add a caption directly', () => {
+  renderCollectionCanvas();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Add caption' }));
+
+  const caption = screen.getByRole('article', { name: 'Caption' });
+  expect(within(caption).getByText('New caption')).toBeVisible();
 });

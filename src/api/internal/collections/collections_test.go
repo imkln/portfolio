@@ -44,7 +44,7 @@ func TestOwnerCanReplaceCollections(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			store := testDynamoStore(t)
-			if err := store.Save(t.Context(), savedStore(t).config); err != nil {
+			if err := seedCollections(t, store); err != nil {
 				t.Fatalf("seed collections: %v", err)
 			}
 			fixture := newFixture(t, store, testutils.OwnerEmail)
@@ -138,12 +138,11 @@ func (store *testCollectionStore) Load(context.Context) (collections.List, error
 	return store.config, store.readErr
 }
 
-func (store *testCollectionStore) Save(_ context.Context, config collections.List) error {
+func (store *testCollectionStore) Update(_ context.Context, change func(*collections.List) error) error {
 	if store.writeErr != nil {
 		return store.writeErr
 	}
-	store.config = config
-	return nil
+	return change(&store.config)
 }
 
 func savedStore(t *testing.T) *testCollectionStore {
@@ -186,4 +185,13 @@ func newFixture(t *testing.T, store collections.Store, email string) *testutils.
 		return "https://photos.example.test/originals/" + id + ".jpg?signature=test", nil
 	})
 	return fixture
+}
+
+func seedCollections(t *testing.T, store collections.Store) error {
+	t.Helper()
+
+	return store.Update(t.Context(), func(config *collections.List) error {
+		*config = savedStore(t).config
+		return nil
+	})
 }

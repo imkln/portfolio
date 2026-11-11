@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react';
-import CollectionBoard from '../components/CollectionBoard/CollectionBoard';
+import Canvas from '../components/Canvas/Canvas';
 import type { Collection } from '../data/Collection';
 
 type Props = {
@@ -10,10 +10,26 @@ type Props = {
 };
 
 export default function Home(props: Props) {
-  const { collections, ...boardProps } = props;
+  const { collections, ...canvasProps } = props;
 
   if (Array.isArray(collections)) {
-    return <CollectionBoard collections={collections} {...boardProps} />;
+    return (
+      <Canvas
+        items={collections}
+        label="Collections"
+        editLabel="Edit collections"
+        emptyMessage="No collections yet."
+        photoPickerTitle="Choose cover photo"
+        addActions={[
+          {
+            label: 'Add collection',
+            idPrefix: 'untitled-collection',
+            create: (layout) => ({ ...layout, title: '', metadata: '', coverPhotoId: null }),
+          },
+        ]}
+        {...canvasProps}
+      />
+    );
   }
 
   return (

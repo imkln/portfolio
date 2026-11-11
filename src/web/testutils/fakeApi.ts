@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
-import type { Collection } from '../data/Collection';
+import type { CanvasItem, Collection } from '../data/Collection';
+import { createCollectionApi } from './collectionApi';
 import { createPhotoApi, isPhotoRequest } from './photoApi';
 import { sampleCollections } from './sampleCollections';
 
@@ -8,9 +9,11 @@ export async function mockApi(
   {
     owner = false,
     collections = sampleCollections,
+    itemsByCollection = {},
   }: {
     owner?: boolean;
     collections?: Collection[];
+    itemsByCollection?: Record<string, CanvasItem[]>;
   } = {},
 ) {
   await page.route('**/api/session', (route) =>
@@ -24,6 +27,25 @@ export async function mockApi(
       ? route.fulfill({ json: { collections } })
       : route.fallback(),
   );
+
+  const detail = createCollectionApi(collections, itemsByCollection);
+  await page.route('**/api/collections/*', async (route) => {
+    const request = route.request();
+    const id = new URL(request.url()).pathname.split('/').at(-1) ?? '';
+    if (request.method() === 'PATCH' && !owner) {
+      await route.fulfill({ status: 401 });
+      return;
+    }
+    const response = await detail(new Request(request.url(), {
+      method: request.method(),
+      body: request.postData() ?? undefined,
+    }), id);
+    await route.fulfill({
+      status: response.status,
+      headers: Object.fromEntries(response.headers),
+      body: Buffer.from(await response.arrayBuffer()),
+    });
+  });
 }
 
 export async function mockPhotos(page: Page) {
