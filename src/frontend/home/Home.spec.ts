@@ -10,12 +10,16 @@ test('can open a collection from its cover in view mode', async ({ page }) => {
   await expect(collection.getByRole('img', { name: 'Collection cover' }))
     .toHaveAttribute('src', sampleCoverPhoto);
 
-  await collection.getByRole('link').click();
+  await collection.getByRole('link', { name: 'Along Superior', exact: true }).click();
 
   await expect(page).toHaveURL(/\/collections\/along-superior$/);
   const items = page.getByRole('region', { name: 'Collection canvas' });
   await expect(items.getByRole('img', { name: 'Collection cover' }))
     .toHaveAttribute('src', sampleCoverPhoto);
+
+  await page.getByRole('link', { name: 'Home' }).click();
+  await collection.getByRole('link', { name: 'Along Superior Lake Superior · Oct 2025' }).click();
+  await expect(page).toHaveURL(/\/collections\/along-superior$/);
 });
 
 test('should load collections when opening Home', async ({ page }) => {
@@ -87,7 +91,7 @@ test('should hide editing controls from non-owners', async ({ page }) => {
   await page.goto('/');
 
   await expect(
-    page.getByRole('article', { name: 'Along Superior' }).getByRole('link'),
+    page.getByRole('article', { name: 'Along Superior' }).getByRole('link').first(),
   ).toBeVisible();
   await expect(
     page.getByRole('button', {

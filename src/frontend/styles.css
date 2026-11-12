@@ -1,11 +1,11 @@
 :root {
-  color-scheme: dark;
-  --background: #2b2c2a;
-  --surface: #383934;
-  --text: #e5e1d7;
-  --muted: #bdb8ad;
-  --line: #68645b;
-  --accent: #efb49a;
+  color-scheme: light;
+  --background: #eae7e0;
+  --surface: #dfdcd4;
+  --text: #292824;
+  --muted: #5e5b55;
+  --line: #8a857b;
+  --accent: #465765;
   --page-gutter: clamp(20px, 5vw, 54px);
   --press-scale: 0.97;
   --row-stagger: 30ms;
@@ -35,17 +35,6 @@ p {
 a {
   color: inherit;
   text-decoration: none;
-}
-
-a.session-action,
-.collection-metadata {
-  color: var(--muted);
-  font:
-    400 11px/1.45 ui-monospace,
-    Menlo,
-    monospace;
-  letter-spacing: 0.065em;
-  text-transform: uppercase;
 }
 
 h1 {

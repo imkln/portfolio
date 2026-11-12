@@ -26,17 +26,20 @@ export default function CanvasItem(props: Props) {
   }
 
   const content = collection.kind === 'caption' ? (
-    <TextCanvasItem
-      multiline
-      label="Caption text"
-      value={collection.text}
-      placeholder="Add text"
-      editing={editing}
-      selected={selected}
-      onChange={(text) => onChange({ text })}
-      onSelect={onSelect}
-      onMove={(event) => onTransform(event, 'move')}
-    />
+    <>
+      <TextCanvasItem
+        multiline
+        label="Caption text"
+        value={collection.text}
+        placeholder="Add text"
+        editing={editing}
+        selected={selected}
+        onChange={(text) => onChange({ text })}
+        onSelect={onSelect}
+        onMove={(event) => onTransform(event, 'move')}
+      />
+      {selected && <TextControls item={collection} onChange={onChange} />}
+    </>
   ) : (
     <PhotoCanvasItem photoId={collection.coverPhotoId} photoUrl={collection.coverPhotoUrl} />
   );
@@ -46,10 +49,15 @@ export default function CanvasItem(props: Props) {
 
 function CollectionCanvasItem({ collection, ...props }: Props & { collection: Collection }) {
   const cover = <PhotoCanvasItem photoId={collection.coverPhotoId} photoUrl={collection.coverPhotoUrl} />;
-  const { editing, selected, onSelect, onChange } = props;
-
-  return (
-    <CanvasItemFrame {...props} collection={collection} content={cover}>
+  const { editing, selected, onSelect, onChange, onOpen, onTransform } = props;
+  const { id, textLayout } = collection;
+  const textPosition = textLayout && {
+    '--text-x': textLayout.x - collection.x,
+    '--text-y': textLayout.y - collection.y,
+    '--text-width': textLayout.width,
+  } as CSSProperties | undefined;
+  const text = (
+    <>
       <h2 className="collection-title">
         <TextCanvasItem
           label="Collection title"
@@ -59,6 +67,7 @@ function CollectionCanvasItem({ collection, ...props }: Props & { collection: Co
           selected={selected}
           onSelect={onSelect}
           onChange={(title) => onChange({ title })}
+          onMove={(event) => onTransform(event, 'move')}
         />
       </h2>
       <p className="collection-metadata">
@@ -70,9 +79,62 @@ function CollectionCanvasItem({ collection, ...props }: Props & { collection: Co
           selected={selected}
           onSelect={onSelect}
           onChange={(metadata) => onChange({ metadata })}
+          onMove={(event) => onTransform(event, 'move')}
         />
       </p>
+    </>
+  );
+
+  return (
+    <CanvasItemFrame {...props} collection={collection} content={cover}>
+      <div className={`collection-text ${textStyleClasses(collection)}`} style={textPosition}>
+        {editing ? text : <a href={`/collections/${id}`} onClick={onOpen}>{text}</a>}
+        {selected && <TextControls item={collection} onChange={onChange} />}
+        {selected && (
+          <span
+            className="text-resize-notch"
+            aria-hidden="true"
+            onPointerDown={(event) => onTransform(event, 'resize')}
+          />
+        )}
+      </div>
     </CanvasItemFrame>
+  );
+}
+
+type TextItem = Exclude<BoardItem, { kind: 'photo' }>;
+
+function textStyleClasses(item: TextItem) {
+  return [item.largeText && 'large-text', item.lightText && 'light-text'].filter(Boolean).join(' ');
+}
+
+function TextControls({ item, onChange }: {
+  item: TextItem;
+  onChange: Props['onChange'];
+}) {
+  const sizeLabel = item.kind === 'caption' ? 'Large caption' : 'Large title';
+
+  return (
+    <div className="text-controls" role="group" aria-label="Text style">
+      <button
+        type="button"
+        aria-label={sizeLabel}
+        aria-pressed={item.largeText ?? false}
+        title={sizeLabel}
+        onClick={() => onChange({ largeText: !item.largeText })}
+      >
+        A
+      </button>
+      <button
+        type="button"
+        aria-label="Light text"
+        aria-pressed={item.lightText ?? false}
+        title="Light text"
+        onClick={() => onChange({ lightText: !item.lightText })}
+      >
+        ◐
+      </button>
+    </div>
   );
 }
 
@@ -109,10 +171,18 @@ function CanvasItemFrame({
   return (
     <article
       aria-label={displayTitle}
-      className={selected ? 'collection selected' : 'collection'}
+      className={[
+        'collection',
+        selected && 'selected',
+        kind === 'caption' && 'caption-item',
+        kind === undefined && collection.textLayout && 'positioned-text',
+      ].filter(Boolean).join(' ')}
       style={layout}
     >
-      <div className={kind === 'caption' ? 'collection-cover canvas-caption' : 'collection-cover'}>
+      <div className={kind === 'caption'
+        ? `collection-cover canvas-caption ${textStyleClasses(collection)}`
+        : 'collection-cover'}
+      >
         {kind === 'caption' ? content : editing ? (
           <button
             type="button"

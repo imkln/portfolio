@@ -4,26 +4,32 @@
   justify-content: space-between;
   height: 56px;
   margin-inline: var(--page-gutter);
-  border-bottom: 1px solid var(--line);
-  font-size: 17px;
-  font-weight: 650;
-  letter-spacing: -0.045em;
+  font-size: 14px;
 }
 
 .mast nav {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 18px;
+}
+
+.mast nav a[aria-current='page'] {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 6px;
 }
 
 .mast nav a:not([aria-current]) {
   color: var(--muted);
 }
 
+.mast .session-action {
+  color: var(--muted);
+  font: inherit;
+}
+
 button.session-action {
   padding: 0;
   border: 0;
   background: transparent;
-  font: inherit;
-  letter-spacing: inherit;
 }

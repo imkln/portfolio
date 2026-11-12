@@ -18,7 +18,7 @@ import (
 
 const savedCollections = `{"collections":[{"id":"lake","title":"Lake","metadata":"Autumn","coverPhotoId":"shore","x":0,"y":0.5,"width":0.3}]}`
 const savedCollectionsResponse = `{"collections":[{"id":"lake","title":"Lake","metadata":"Autumn","coverPhotoId":"shore","coverPhotoUrl":"https://photos.example.test/originals/shore.jpg?signature=test","x":0,"y":0.5,"width":0.3}]}`
-const changedCollections = `{"collections":[{"id":"forest","title":"Forest","metadata":"Spring","coverPhotoId":null,"x":0.2,"y":0.9,"width":0.45}]}`
+const changedCollections = `{"collections":[{"id":"forest","title":"Forest","metadata":"Spring","coverPhotoId":null,"x":0.2,"y":0.9,"width":0.45,"textLayout":{"x":0.7,"y":0.9,"width":0.25},"largeText":true,"lightText":true}]}`
 const emptyCollections = `{"collections":[]}`
 
 func TestNonOwnerCanListCollections(t *testing.T) {

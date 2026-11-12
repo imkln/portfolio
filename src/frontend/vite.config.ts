@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 import { createFakeCollectionsApi, isCollectionRequest } from './testutils/fakeCollectionsApi.ts';
-import { sampleCollections, sampleCollectionItems } from './testutils/sampleCollections.ts';
+import { previewCollections, previewCollectionItems } from './testutils/previewCollections.ts';
 import { createFakePhotosApi, isPhotoRequest } from './testutils/fakePhotosApi.ts';
 
 export default defineConfig(({ mode }) => ({
@@ -14,8 +14,8 @@ export default defineConfig(({ mode }) => ({
         if (mode !== 'photos-preview' && mode !== 'collection-canvas-preview') return;
 
         const photos = createFakePhotosApi();
-        const collections = mode === 'collection-canvas-preview' ? sampleCollections : [];
-        const handleCollections = createFakeCollectionsApi(collections, { 'along-superior': sampleCollectionItems });
+        const collections = mode === 'collection-canvas-preview' ? previewCollections : [];
+        const handleCollections = createFakeCollectionsApi(collections, { 'along-superior': previewCollectionItems });
         server.middlewares.use(async (request, response, next) => {
           const url = new URL(request.url ?? '/', 'http://localhost');
           const collectionRequest = isCollectionRequest(url.pathname);

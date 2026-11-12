@@ -22,6 +22,8 @@ export const sampleCollections: Collection[] = [
     x: 0.61,
     y: 0.14,
     width: 0.37,
+    textLayout: { x: 0.61, y: 0.03, width: 0.37 },
+    lightText: true,
   },
   {
     id: 'after-the-shift',
