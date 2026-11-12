@@ -90,12 +90,16 @@
   overflow-wrap: anywhere;
 }
 
-.collection-title {
+.collection-title,
+.canvas-caption.large-text {
   font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
-  font-size: clamp(22px, 3.4vw, 48px);
   line-height: 1.15;
   font-weight: 400;
   letter-spacing: -0.035em;
+}
+
+.collection-title {
+  font-size: clamp(22px, 3.4vw, 48px);
 }
 
 .collection-text {
@@ -149,17 +153,7 @@
 
 .large-text .collection-title,
 .canvas-caption.large-text {
-  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
-  line-height: 1.15;
-  letter-spacing: -0.035em;
-}
-
-.large-text .collection-title {
   font-size: clamp(30px, 6.5vw, 96px);
-}
-
-.canvas-caption.large-text {
-  font-size: clamp(24px, 4vw, 56px);
 }
 
 .collection-board:not(.compact) .light-text,
@@ -170,6 +164,10 @@
 .collection-metadata {
   min-height: 1.45em;
   margin-top: 4px;
+}
+
+.collection-metadata,
+.canvas-caption:not(.large-text) {
   color: var(--muted);
   font-size: 13px;
 }
@@ -214,6 +212,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
+  letter-spacing: inherit;
   text-align: left;
 }
 
@@ -234,7 +233,7 @@
   overflow-wrap: anywhere;
 }
 
-.collection-board:not(.compact) .canvas-caption > .canvas-caption-text {
-  max-height: 100%;
-  overflow: auto;
+.collection-board:not(.compact) .canvas-caption:has(> .canvas-caption-text) {
+  height: auto;
+  min-height: calc(var(--height) * 100cqw);
 }
