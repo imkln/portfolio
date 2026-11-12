@@ -3,6 +3,17 @@
 }
 
 .photo-selection-count {
-  padding-inline: 8px;
+  padding-inline: 6px;
+  border-inline-end: 1px solid var(--line);
   color: var(--muted);
+  font-size: 13px;
+}
+
+.photo-delete {
+  color: #8c392e;
+}
+
+.action-bar .photo-selection-done {
+  background: #d8dce0;
+  color: var(--accent);
 }

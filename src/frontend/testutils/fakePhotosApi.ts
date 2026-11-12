@@ -11,8 +11,8 @@ export function isPhotoRequest(path: string) {
     path.startsWith(uploadPath);
 }
 
-export function createFakePhotosApi() {
-  const photos = new Map(samplePhotos.map((photo) => [photo.id, photo]));
+export function createFakePhotosApi(initialPhotos = samplePhotos) {
+  const photos = new Map(initialPhotos.map((photo) => [photo.id, photo]));
   const uploads = new Map<string, Upload>();
   const received: string[] = [];
   let nextId = 1;
@@ -78,6 +78,10 @@ export function createFakePhotosApi() {
     }
 
     const image = asset === 'thumbnail' ? photo.thumbnail : photo.original;
+    if (image.startsWith('/')) {
+      return new Response(null, { status: 302, headers: { Location: image } });
+    }
+
     return new Response(decodeURIComponent(image.slice(image.indexOf(',') + 1)), {
       headers: { 'Content-Type': 'image/svg+xml' },
     });

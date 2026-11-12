@@ -2,6 +2,7 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 import { createFakeCollectionsApi, isCollectionRequest } from './testutils/fakeCollectionsApi.ts';
 import { previewCollections, previewItemsByCollection } from './testutils/previewCollections.ts';
+import { previewPhotos } from './testutils/previewPhotos.ts';
 import { createFakePhotosApi, isPhotoRequest } from './testutils/fakePhotosApi.ts';
 
 export default defineConfig(({ mode }) => ({
@@ -13,7 +14,7 @@ export default defineConfig(({ mode }) => ({
       configureServer(server) {
         if (mode !== 'photos-preview' && mode !== 'collection-canvas-preview') return;
 
-        const photos = createFakePhotosApi();
+        const photos = createFakePhotosApi(previewPhotos);
         const collections = mode === 'collection-canvas-preview' ? previewCollections : [];
         const handleCollections = createFakeCollectionsApi(collections, previewItemsByCollection);
         server.middlewares.use(async (request, response, next) => {

@@ -96,6 +96,7 @@ export default function Photos() {
               {selected.size} selected
             </p>
             <button
+              className="photo-delete"
               type="button"
               disabled={deleting || selected.size === 0}
               onClick={deletePhotos}
@@ -106,6 +107,7 @@ export default function Photos() {
         )}
         <button
           key="selection-mode"
+          className={selecting ? 'photo-selection-done' : undefined}
           ref={modeButton}
           type="button"
           disabled={deleting || (!selecting && photos.length === 0)}
