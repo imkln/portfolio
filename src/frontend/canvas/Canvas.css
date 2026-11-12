@@ -10,6 +10,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   container-type: inline-size;
+  isolation: isolate;
 }
 
 .collection-board:not(.compact) > .collection {
@@ -24,8 +25,35 @@
   gap: 30px;
 }
 
+.collection-board:not(.compact) > .caption-item:not(.selected) {
+  z-index: 1;
+}
+
+.collection-board:not(.compact) > .positioned-text {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  pointer-events: none;
+}
+
+.positioned-text > .collection-cover,
+.positioned-text > .collection-text {
+  pointer-events: auto;
+}
+
+.collection-board:not(.compact) > .positioned-text > * {
+  grid-area: 1 / 1;
+  align-self: start;
+}
+
+.collection-board:not(.compact) > .positioned-text > .collection-text {
+  justify-self: start;
+  width: calc(var(--text-width) * 100cqw);
+  margin-left: calc(var(--text-x) * 100cqw);
+  margin-top: calc(var(--text-y) * 100cqw);
+}
+
 @media (prefers-reduced-motion: no-preference) {
-  .collection-board.compact > .collection {
+  .collection-board > .collection {
     animation: enter-row var(--entrance-duration) ease-out backwards;
     animation-delay: calc(var(--row-stagger) * min(var(--row-index), 8));
   }

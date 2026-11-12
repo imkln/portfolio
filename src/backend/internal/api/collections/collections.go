@@ -18,14 +18,23 @@ type List struct {
 }
 
 type Collection struct {
-	ID           string   `json:"id"`
-	Title        string   `json:"title"`
-	Metadata     string   `json:"metadata"`
-	CoverPhotoID *string  `json:"coverPhotoId"`
-	X            *float64 `json:"x"`
-	Y            *float64 `json:"y"`
-	Width        *float64 `json:"width"`
-	Items        *[]Item  `json:"items,omitempty"`
+	ID           string      `json:"id"`
+	Title        string      `json:"title"`
+	Metadata     string      `json:"metadata"`
+	CoverPhotoID *string     `json:"coverPhotoId"`
+	X            *float64    `json:"x"`
+	Y            *float64    `json:"y"`
+	Width        *float64    `json:"width"`
+	TextLayout   *TextLayout `json:"textLayout,omitempty"`
+	LargeText    bool        `json:"largeText,omitempty"`
+	LightText    bool        `json:"lightText,omitempty"`
+	Items        *[]Item     `json:"items,omitempty"`
+}
+
+type TextLayout struct {
+	X     *float64 `json:"x"`
+	Y     *float64 `json:"y"`
+	Width *float64 `json:"width"`
 }
 
 type listedCollection struct {
@@ -101,6 +110,9 @@ func (config List) valid() bool {
 			return false
 		}
 		if strings.ContainsAny(item.Title, "\r\n") || strings.ContainsAny(item.Metadata, "\r\n") {
+			return false
+		}
+		if text := item.TextLayout; text != nil && !validLayout(text.X, text.Y, text.Width) {
 			return false
 		}
 		ids[item.ID] = true

@@ -18,6 +18,8 @@ type Item struct {
 	Y            *float64 `json:"y"`
 	Width        *float64 `json:"width"`
 	Height       *float64 `json:"height,omitempty"`
+	LargeText    bool     `json:"largeText,omitempty"`
+	LightText    bool     `json:"lightText,omitempty"`
 }
 
 type listedItem struct {
@@ -109,7 +111,7 @@ func validItems(items []Item) bool {
 		}
 		switch item.Kind {
 		case "photo":
-			if item.CoverPhotoID == nil || !photos.ValidID(*item.CoverPhotoID) || item.Text != nil || item.Height != nil {
+			if item.CoverPhotoID == nil || !photos.ValidID(*item.CoverPhotoID) || item.Text != nil || item.Height != nil || item.LargeText || item.LightText {
 				return false
 			}
 		case "caption":

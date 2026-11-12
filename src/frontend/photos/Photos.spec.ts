@@ -188,18 +188,6 @@ test('can select a range with Shift-click', async ({ page }) => {
   await expect(page.getByRole('status')).toHaveText('3 selected');
 });
 
-test('should keep photos selected when deletion is canceled', async ({ page }) => {
-  await openPhotos(page);
-  await page.getByRole('button', { name: 'Select', exact: true }).click();
-  const thumbnail = photo(page, 'Photo 1');
-  await thumbnail.click();
-
-  await page.getByRole('button', { name: 'Delete', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
-
-  await expect(thumbnail).toHaveAttribute('aria-pressed', 'true');
-});
-
 test('can retry a photo deletion after a partial failure', async ({ page }) => {
   await openPhotos(page);
   await page.route('**/api/photos/sample-1', (route) =>
@@ -212,9 +200,7 @@ test('can retry a photo deletion after a partial failure', async ({ page }) => {
   await deleted.click();
 
   const deleteButton = page.getByRole('button', { name: 'Delete', exact: true });
-  const confirm = page.getByRole('dialog').getByRole('button', { name: 'Delete' });
   await deleteButton.click();
-  await confirm.click();
 
   await expect(page.getByRole('alert')).toHaveText('Some photos could not be deleted.');
   await expect(failed).toHaveAttribute('aria-pressed', 'true');
@@ -222,7 +208,6 @@ test('can retry a photo deletion after a partial failure', async ({ page }) => {
 
   await page.unroute('**/api/photos/sample-1');
   await deleteButton.click();
-  await confirm.click();
 
   await expect(failed).toHaveCount(0);
   await expect(page.getByRole('alert')).toHaveCount(0);

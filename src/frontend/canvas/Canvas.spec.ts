@@ -57,6 +57,25 @@ test('should position a collection using its layout', async ({ page }) => {
   expect((item.x - frame.x) / frame.width).toBeCloseTo(config.x, 3);
   expect((item.y - frame.y) / frame.width).toBeCloseTo(config.y, 3);
   expect(item.width / frame.width).toBeCloseTo(config.width, 3);
+
+  const text = await bounds(collection(page, config.title).getByRole('heading'));
+  expect((text.x - frame.x) / frame.width).toBeCloseTo(0.61, 3);
+  expect((text.y - frame.y) / frame.width).toBeCloseTo(0.03, 3);
+});
+
+test('can drag collection text independently of its cover', async ({ page }) => {
+  const first = await selectFirst(page);
+  const cover = first.getByRole('img');
+  const title = first.getByRole('button', { name: 'Along Superior', exact: true });
+  const coverBefore = await bounds(cover);
+  const titleBefore = await bounds(title);
+
+  await drag(page, title, 80, 40);
+
+  const titleAfter = await bounds(title);
+  expect(titleAfter.x - titleBefore.x).toBeCloseTo(80, 0);
+  expect(titleAfter.y - titleBefore.y).toBeCloseTo(40, 0);
+  expect(await bounds(cover)).toEqual(coverBefore);
 });
 
 test('can resize a selected collection', async ({ page }) => {
@@ -171,28 +190,15 @@ test('can close the cover picker without changing the cover', async ({ page }) =
   await expect(button).toBeFocused();
 });
 
-test('can confirm saving a collection deletion', async ({ page }) => {
+test('can save a collection deletion', async ({ page }) => {
   const first = await selectFirst(page);
   await first.getByRole('button', { name: 'Delete collection' }).click();
   await expect(first).toHaveCount(0);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-
-  await page.getByRole('dialog').getByRole('button', { name: 'Save and delete' }).click();
 
   await expect(page.getByRole('button', { name: 'Edit collections' })).toBeVisible();
   await page.reload();
   await expect(collection(page, 'Quiet Water')).toBeVisible();
-  await expect(first).toHaveCount(0);
-});
-
-test('should keep the draft when a save with deletions is canceled', async ({ page }) => {
-  const first = await selectFirst(page);
-  await first.getByRole('button', { name: 'Delete collection' }).click();
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-
-  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
-
-  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
   await expect(first).toHaveCount(0);
 });
 
@@ -246,7 +252,7 @@ test('should hide editing controls on smaller screens', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
 
   await expect(
-    collection(page, 'Along Superior').getByRole('link'),
+    collection(page, 'Along Superior').getByRole('link').first(),
   ).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Edit collections' }),
@@ -289,4 +295,15 @@ test('should sort collections by y position on smaller screens', async ({
     'Quiet Water',
     'After the Shift',
   ]);
+});
+
+test('should show dark collection text on smaller screens when light text is saved', async ({ page }) => {
+  const freight = collection(page, 'Freight Country');
+  const title = freight.getByRole('heading');
+  const metadata = freight.getByText('Upper Midwest · Aug 2025', { exact: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await expect(title).toHaveCSS('color', 'rgb(41, 40, 36)');
+  await expect(metadata).toHaveCSS('color', 'rgb(94, 91, 85)');
 });

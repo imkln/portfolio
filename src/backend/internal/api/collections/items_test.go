@@ -11,7 +11,7 @@ const lakePath = "/api/collections/lake"
 const lake = `{"id":"lake","title":"Lake","metadata":"Autumn","coverPhotoId":"shore","coverPhotoUrl":"https://photos.example.test/originals/shore.jpg?signature=test","x":0,"y":0.5,"width":0.3,`
 const photoItem = `{"id":"shore-photo","kind":"photo","coverPhotoId":"shore","x":0,"y":0,"width":0.5}`
 const listedPhotoItem = `{"id":"shore-photo","kind":"photo","coverPhotoId":"shore","coverPhotoUrl":"https://photos.example.test/originals/shore.jpg?signature=test","x":0,"y":0,"width":0.5}`
-const captionItem = `{"id":"note","kind":"caption","text":"Along the shore","x":0.6,"y":0.1,"width":0.3,"height":0.12}`
+const captionItem = `{"id":"note","kind":"caption","text":"Along the shore","x":0.6,"y":0.1,"width":0.3,"height":0.12,"largeText":true,"lightText":true}`
 const itemsUpdate = `{"items":[` + photoItem + "," + captionItem + `]}`
 const lakeWithItems = lake + `"items":[` + listedPhotoItem + "," + captionItem + `]}`
 
