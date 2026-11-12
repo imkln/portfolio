@@ -53,7 +53,7 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .collection-board.compact > .collection {
+  .collection-board > .collection {
     animation: enter-row var(--entrance-duration) ease-out backwards;
     animation-delay: calc(var(--row-stagger) * min(var(--row-index), 8));
   }

@@ -48,30 +48,13 @@
 
 .selected .cover-control:active {
   cursor: grabbing;
+}
+
+.collection :is(a, button):active {
   scale: none;
 }
 
-.choose-cover,
-.delete-collection {
-  display: grid;
-  place-items: center;
-  position: absolute;
-  top: 8px;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-}
-
-.choose-cover {
-  left: 8px;
-}
-
-.delete-collection {
-  right: 8px;
-}
-
-.choose-cover svg,
-.delete-collection svg {
+.item-controls svg {
   width: 17px;
   fill: none;
   stroke: currentColor;
@@ -134,7 +117,7 @@
   touch-action: none;
 }
 
-.text-controls {
+.item-controls {
   position: absolute;
   z-index: 1;
   bottom: calc(100% + 5px);
@@ -148,7 +131,9 @@
   color: var(--text);
 }
 
-.text-controls button {
+.item-controls button {
+  display: grid;
+  place-items: center;
   width: 32px;
   height: 32px;
   padding: 0;
@@ -157,8 +142,8 @@
   font-size: 16px;
 }
 
-.text-controls button:hover,
-.text-controls button[aria-pressed='true'] {
+.item-controls button:hover,
+.item-controls button[aria-pressed='true'] {
   background: var(--surface);
 }
 

@@ -201,7 +201,7 @@ export default function Canvas<Item extends BoardItem>({
             <CanvasItem
               key={item.id}
               collection={item}
-              rowIndex={compact ? index : undefined}
+              rowIndex={index}
               editing={editing}
               selected={editing && item.id === selectedId}
               onOpen={onOpen}

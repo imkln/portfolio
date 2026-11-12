@@ -26,20 +26,17 @@ export default function CanvasItem(props: Props) {
   }
 
   const content = collection.kind === 'caption' ? (
-    <>
-      <TextCanvasItem
-        multiline
-        label="Caption text"
-        value={collection.text}
-        placeholder="Add text"
-        editing={editing}
-        selected={selected}
-        onChange={(text) => onChange({ text })}
-        onSelect={onSelect}
-        onMove={(event) => onTransform(event, 'move')}
-      />
-      {selected && <TextControls item={collection} onChange={onChange} />}
-    </>
+    <TextCanvasItem
+      multiline
+      label="Caption text"
+      value={collection.text}
+      placeholder="Add text"
+      editing={editing}
+      selected={selected}
+      onChange={(text) => onChange({ text })}
+      onSelect={onSelect}
+      onMove={(event) => onTransform(event, 'move')}
+    />
   ) : (
     <PhotoCanvasItem photoId={collection.coverPhotoId} photoUrl={collection.coverPhotoUrl} />
   );
@@ -108,14 +105,19 @@ function textStyleClasses(item: TextItem) {
   return [item.largeText && 'large-text', item.lightText && 'light-text'].filter(Boolean).join(' ');
 }
 
-function TextControls({ item, onChange }: {
+function ItemControls({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="item-controls" role="group" aria-label={label}>{children}</div>;
+}
+
+function TextControls({ item, onChange, children }: {
   item: TextItem;
   onChange: Props['onChange'];
+  children?: ReactNode;
 }) {
   const sizeLabel = item.kind === 'caption' ? 'Large caption' : 'Large title';
 
   return (
-    <div className="text-controls" role="group" aria-label="Text style">
+    <ItemControls label="Text controls">
       <button
         type="button"
         aria-label={sizeLabel}
@@ -134,7 +136,8 @@ function TextControls({ item, onChange }: {
       >
         ◐
       </button>
-    </div>
+      {children}
+    </ItemControls>
   );
 }
 
@@ -145,6 +148,7 @@ function CanvasItemFrame({
   selected,
   onOpen,
   onSelect,
+  onChange,
   onChooseCover,
   onDelete,
   onTransform,
@@ -167,6 +171,19 @@ function CanvasItemFrame({
   function pressCover(event: PointerEvent<HTMLButtonElement>) {
     if (selected && event.button === 0) onTransform(event, 'move');
   }
+
+  const deleteControl = (
+    <button
+      type="button"
+      aria-label={`Delete ${itemType}`}
+      title={`Delete ${itemType}`}
+      onClick={onDelete}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 7h16m-10 0V4h4v3m4 0-1 13H7L6 7m4 4v5m4-5v5" />
+      </svg>
+    </button>
+  );
 
   return (
     <article
@@ -207,36 +224,29 @@ function CanvasItemFrame({
 
         {selected && (
           <>
-            {kind !== 'caption' && (
-              <button
-                type="button"
-                className="choose-cover"
-                aria-label={kind === 'photo' ? 'Replace photo' : 'Choose cover photo'}
-                aria-haspopup="dialog"
-                title={kind === 'photo' ? 'Replace photo' : 'Choose cover photo'}
-                onClick={(event) => {
-                  event.currentTarget.focus();
-                  onChooseCover();
-                }}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <rect x="3" y="4" width="18" height="16" rx="2" />
-                  <circle cx="9" cy="9" r="1.5" />
-                  <path d="m3 17 5-4 3 2 5-5 5 5" />
-                </svg>
-              </button>
+            {kind === 'caption' ? (
+              <TextControls item={collection} onChange={onChange}>{deleteControl}</TextControls>
+            ) : (
+              <ItemControls label="Photo controls">
+                <button
+                  type="button"
+                  aria-label={kind === 'photo' ? 'Replace photo' : 'Choose cover photo'}
+                  aria-haspopup="dialog"
+                  title={kind === 'photo' ? 'Replace photo' : 'Choose cover photo'}
+                  onClick={(event) => {
+                    event.currentTarget.focus();
+                    onChooseCover();
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="16" rx="2" />
+                    <circle cx="9" cy="9" r="1.5" />
+                    <path d="m3 17 5-4 3 2 5-5 5 5" />
+                  </svg>
+                </button>
+                {deleteControl}
+              </ItemControls>
             )}
-            <button
-              type="button"
-              className="delete-collection"
-              aria-label={`Delete ${itemType}`}
-              title={`Delete ${itemType}`}
-              onClick={onDelete}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 7h16m-10 0V4h4v3m4 0-1 13H7L6 7m4 4v5m4-5v5" />
-              </svg>
-            </button>
             <span
               className="resize-notch"
               aria-hidden="true"
