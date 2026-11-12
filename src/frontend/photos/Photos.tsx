@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import ActionBar from '../shared/action-bar/ActionBar';
-import ConfirmationDialog from '../shared/confirmation-dialog/ConfirmationDialog';
 import PhotoGrid from './grid/PhotoGrid';
 import PhotoViewer from './viewer/PhotoViewer';
 import type { Photo } from './Photo';
@@ -17,7 +16,6 @@ export default function Photos() {
   const [deleteError, setDeleteError] = useState(false);
   const anchor = useRef<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
-  const confirmation = useRef<HTMLDialogElement>(null);
   const modeButton = useRef<HTMLButtonElement>(null);
 
   async function navigatePhoto(direction: -1 | 1) {
@@ -100,7 +98,7 @@ export default function Photos() {
             <button
               type="button"
               disabled={deleting || selected.size === 0}
-              onClick={() => confirmation.current?.showModal()}
+              onClick={deletePhotos}
             >
               Delete
             </button>
@@ -157,13 +155,6 @@ export default function Photos() {
           onNavigate={(direction) => void navigatePhoto(direction)}
         />
       )}
-
-      <ConfirmationDialog
-        ref={confirmation}
-        title={selected.size === 1 ? 'Delete this photo?' : `Delete ${selected.size} photos?`}
-        confirmLabel="Delete"
-        onConfirm={() => void deletePhotos()}
-      />
     </main>
   );
 }

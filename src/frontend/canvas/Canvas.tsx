@@ -4,7 +4,6 @@ import type { BoardItem, BoardItemChange, BoardLayout } from '../collections/Col
 import type { Photo } from '../photos/Photo';
 import useCanvasGestures from './useCanvasGestures';
 import ActionBar from '../shared/action-bar/ActionBar';
-import ConfirmationDialog from '../shared/confirmation-dialog/ConfirmationDialog';
 import CanvasItem from './items/CanvasItem';
 import PhotoPicker from '../photos/picker/PhotoPicker';
 import './Canvas.css';
@@ -58,7 +57,6 @@ export default function Canvas<Item extends BoardItem>({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const board = useRef<HTMLElement>(null);
-  const deleteConfirmation = useRef<HTMLDialogElement>(null);
   const scrollToNew = useRef(false);
   const editing = canEdit && !compact && draft !== null;
   const items = compact
@@ -116,19 +114,6 @@ export default function Canvas<Item extends BoardItem>({
     setSelectedId(null);
   }
 
-  function requestSave() {
-    if (!editing || saving) return;
-
-    const removesCollection = saved.some((item) =>
-      item.kind === undefined && !draft.some(({ id }) => id === item.id),
-    );
-    if (removesCollection) {
-      deleteConfirmation.current?.showModal();
-    } else {
-      void save();
-    }
-  }
-
   async function save() {
     if (!editing || saving) return;
 
@@ -174,7 +159,7 @@ export default function Canvas<Item extends BoardItem>({
               </button>
             ))}
             {editing && (
-              <button type="button" onClick={requestSave}>
+              <button type="button" onClick={save}>
                 {saving ? 'Saving…' : 'Save'}
               </button>
             )}
@@ -216,12 +201,6 @@ export default function Canvas<Item extends BoardItem>({
           ))}
         </section>
       </fieldset>
-      <ConfirmationDialog
-        ref={deleteConfirmation}
-        title="Save changes and delete removed collections?"
-        confirmLabel="Save and delete"
-        onConfirm={() => void save()}
-      />
       {choosePhoto && (
         <PhotoPicker
           title={photoPickerTitle}

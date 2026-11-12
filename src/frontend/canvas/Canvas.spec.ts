@@ -190,28 +190,15 @@ test('can close the cover picker without changing the cover', async ({ page }) =
   await expect(button).toBeFocused();
 });
 
-test('can confirm saving a collection deletion', async ({ page }) => {
+test('can save a collection deletion', async ({ page }) => {
   const first = await selectFirst(page);
   await first.getByRole('button', { name: 'Delete collection' }).click();
   await expect(first).toHaveCount(0);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-
-  await page.getByRole('dialog').getByRole('button', { name: 'Save and delete' }).click();
 
   await expect(page.getByRole('button', { name: 'Edit collections' })).toBeVisible();
   await page.reload();
   await expect(collection(page, 'Quiet Water')).toBeVisible();
-  await expect(first).toHaveCount(0);
-});
-
-test('should keep the draft when a save with deletions is canceled', async ({ page }) => {
-  const first = await selectFirst(page);
-  await first.getByRole('button', { name: 'Delete collection' }).click();
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-
-  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
-
-  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
   await expect(first).toHaveCount(0);
 });
 
