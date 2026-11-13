@@ -18,6 +18,7 @@ import (
 	"github.com/imkln/portfolio/src/backend/internal/api/auth"
 	"github.com/imkln/portfolio/src/backend/internal/api/collections"
 	"github.com/imkln/portfolio/src/backend/internal/api/server"
+	"github.com/imkln/portfolio/src/backend/internal/api/tags"
 	"github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
 
@@ -67,9 +68,10 @@ func main() {
 	dynamoClient := dynamodb.NewFromConfig(awsConfig)
 	collectionStore := collections.NewDynamoStore(dynamoClient, collectionsTable)
 	photoStore := photos.NewDynamoStore(dynamoClient, photosTable)
+	tagStore := tags.NewDynamoStore(dynamoClient, collectionsTable)
 	photoFiles := photos.NewS3Store(s3.NewFromConfig(awsConfig), uploadBucket)
 	handler, err := server.New(
-		ctx, appConfig, os.DirFS(*assets), collectionStore, photoStore,
+		ctx, appConfig, os.DirFS(*assets), collectionStore, photoStore, tagStore,
 		photoFiles, os.Getenv("PHOTO_UPLOAD_ORIGIN"),
 	)
 	if err != nil {

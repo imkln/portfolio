@@ -12,6 +12,7 @@ import (
 	"github.com/imkln/portfolio/src/backend/internal/api/auth"
 	"github.com/imkln/portfolio/src/backend/internal/api/collections"
 	"github.com/imkln/portfolio/src/backend/internal/api/photos"
+	"github.com/imkln/portfolio/src/backend/internal/api/tags"
 )
 
 func New(
@@ -20,6 +21,7 @@ func New(
 	assets fs.FS,
 	collectionStore collections.Store,
 	photoStore photos.Store,
+	tagStore tags.Store,
 	photoFiles photos.FileStore,
 	uploadOrigin string,
 ) (http.Handler, error) {
@@ -29,6 +31,10 @@ func New(
 
 	if photoStore == nil {
 		return nil, errors.New("a photos store is required")
+	}
+
+	if tagStore == nil {
+		return nil, errors.New("a tags store is required")
 	}
 
 	if photoFiles == nil {
@@ -68,6 +74,7 @@ func New(
 	sessions.Register(mux)
 	collections.Register(mux, collectionStore, sessions.IsOwner, photoFiles.OriginalURL)
 	photos.Register(mux, photoStore, photoFiles, sessions.IsOwner)
+	tags.Register(mux, tagStore, sessions.IsOwner)
 
 	return securityHeaders(protection.Handler(mux), strings.TrimRight(config.AuthDomain, "/"), uploadOrigin), nil
 }
