@@ -436,7 +436,7 @@ func newFileLibrary(owner bool, items ...photoItem) (*http.ServeMux, *fileLibrar
 	}
 
 	photos.Register(mux, store, files, func(context.Context) ([]tags.Tag, error) {
-		return []tags.Tag{{ID: "france"}, {ID: "lyon"}, {ID: "paris"}}, nil
+		return []tags.Tag{{ID: "france"}, {ID: "lyon", ParentID: "france"}, {ID: "paris", ParentID: "france"}, {ID: "architecture"}}, nil
 	}, func(*http.Request) bool { return owner })
 	return mux, files
 }

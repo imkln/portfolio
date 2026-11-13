@@ -4,10 +4,17 @@ import PhotoGrid from './grid/PhotoGrid';
 import PhotoViewer from './viewer/PhotoViewer';
 import type { Photo } from './Photo';
 import usePhotoLibrary from './usePhotoLibrary';
+import TagFilter from './tags/TagFilter';
+import TagEditor from './tags/TagEditor';
+import useTags from './tags/useTags';
 import './Photos.css';
 
 export default function Photos() {
-  const library = usePhotoLibrary();
+  const [filters, setFilters] = useState<string[]>([]);
+  const [revision, setRevision] = useState(0);
+  const [tagMode, setTagMode] = useState<'edit' | 'create' | 'manage'>();
+  const { tags, setTags, tagError } = useTags();
+  const library = usePhotoLibrary(filters, revision);
   const { photos, loadMore, upload, uploading, uploadError, remove } = library;
   const [viewing, setViewing] = useState<{ photo: Photo } | null>(null);
   const [selecting, setSelecting] = useState(false);
@@ -90,11 +97,21 @@ export default function Photos() {
             <span aria-hidden="true">+ </span>Upload photos
           </button>
         )}
+        {!selecting && !tagError && (
+          <>
+            <button type="button" onClick={() => setTagMode('create')}>New tag</button>
+            <button type="button" onClick={() => setTagMode('manage')}>Manage tags</button>
+          </>
+        )}
         {selecting && (
           <>
             <p className="photo-selection-count" role="status">
               {selected.size} selected
             </p>
+            {!tagError && (
+              <button type="button" disabled={deleting || selected.size === 0 || selected.size > 100}
+                onClick={() => setTagMode('edit')}>Edit tags</button>
+            )}
             <button
               className="photo-delete"
               type="button"
@@ -139,6 +156,10 @@ export default function Photos() {
       {uploadError && <p role="alert">{uploadError}</p>}
       {deleteError && <p role="alert">Some photos could not be deleted.</p>}
 
+      {tagError && <p role="alert">Could not load tags.</p>}
+      {!tagError && <TagFilter tags={tags} selected={filters} disabled={selecting}
+        onChange={setFilters} />}
+
       <PhotoGrid
         library={library}
         selected={selecting ? selected : null}
@@ -148,6 +169,22 @@ export default function Photos() {
           else setViewing({ photo });
         }}
       />
+
+      {tagMode && (
+        <TagEditor mode={tagMode} tags={tags} photos={photos.filter((photo) => selected.has(photo.id))}
+          onCreated={(tag) => setTags((current) => [...current, tag])}
+          onDeleted={(id) => {
+            setTags((current) => current.filter((tag) => tag.id !== id));
+            setFilters((current) => current.includes(id) ? current.filter((tag) => tag !== id) : current);
+            setRevision((current) => current + 1);
+          }}
+          onApplied={() => {
+            clearSelection();
+            setSelecting(false);
+            setRevision((current) => current + 1);
+          }}
+          onClose={() => setTagMode(undefined)} />
+      )}
 
       {viewing && (
         <PhotoViewer

@@ -11,10 +11,11 @@ function withImageUrls(photo: PhotoDetails): Photo {
   return { ...photo, original, thumbnail: `${original}/thumbnail` };
 }
 
-export async function listPhotos(signal: AbortSignal, pageToken?: string) {
-  const url = pageToken
-    ? `${photosPath}?${new URLSearchParams({ pageToken })}`
-    : photosPath;
+export async function listPhotos(signal: AbortSignal, pageToken?: string, filters: readonly string[] = []) {
+  const params = new URLSearchParams();
+  if (pageToken) params.set('pageToken', pageToken);
+  for (const id of filters) params.append('tagId', id);
+  const url = params.size ? `${photosPath}?${params}` : photosPath;
   const response = await fetch(url, { signal });
   if (!response.ok) throw new Error('Could not load photos');
 

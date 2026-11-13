@@ -1,7 +1,9 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { Photo } from '../Photo';
 import usePhotoLibrary from '../usePhotoLibrary';
 import PhotoGrid from '../grid/PhotoGrid';
+import TagFilter from '../tags/TagFilter';
+import useTags from '../tags/useTags';
 import './PhotoPicker.css';
 
 type Props = {
@@ -13,7 +15,9 @@ type Props = {
 export default function PhotoPicker({ title, onChoose, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
-  const library = usePhotoLibrary();
+  const [filters, setFilters] = useState<string[]>([]);
+  const { tags, tagError } = useTags();
+  const library = usePhotoLibrary(filters);
 
   useEffect(() => {
     dialog.current?.showModal();
@@ -33,6 +37,8 @@ export default function PhotoPicker({ title, onChoose, onClose }: Props) {
         </button>
       </header>
 
+      {tagError && <p role="alert">Could not load tags.</p>}
+      {!tagError && <TagFilter tags={tags} selected={filters} onChange={setFilters} />}
       <div className="photo-picker-content">
         <PhotoGrid
           library={library}

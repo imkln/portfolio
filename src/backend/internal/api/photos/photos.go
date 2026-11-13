@@ -84,7 +84,13 @@ func (app *handler) list(w http.ResponseWriter, r *http.Request) {
 		token = tokens[0]
 	}
 
-	items, next, err := app.store.ListReady(r.Context(), token, pageSize)
+	filters := params["tagId"]
+	if !uniqueIDs(filters) {
+		writeError(w, http.StatusBadRequest)
+		return
+	}
+
+	items, next, err := app.listPhotos(r.Context(), token, filters)
 	if errors.Is(err, photostore.ErrInvalidPageToken) {
 		writeError(w, http.StatusBadRequest)
 		return

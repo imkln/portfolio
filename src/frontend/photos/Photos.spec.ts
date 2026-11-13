@@ -65,6 +65,7 @@ test('should ask for a JPEG when the selected file is unsupported', async ({ pag
 });
 
 test('should show when the photo library is empty', async ({ page }) => {
+  await mockPhotos(page);
   await page.route('**/api/photos', (route) => route.fulfill({ json: { photos: [] } }));
   await mockApi(page, { owner: true });
 
@@ -74,6 +75,7 @@ test('should show when the photo library is empty', async ({ page }) => {
 });
 
 test('should show when photos fail to load', async ({ page }) => {
+  await mockPhotos(page);
   await page.route('**/api/photos', (route) => route.fulfill({ status: 500 }));
   await mockApi(page, { owner: true });
 

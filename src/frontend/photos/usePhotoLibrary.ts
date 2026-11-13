@@ -6,7 +6,9 @@ import {
   uploadPhoto,
 } from './photosApi';
 
-export default function usePhotoLibrary() {
+const noFilters: readonly string[] = [];
+
+export default function usePhotoLibrary(filters = noFilters, revision = 0) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [pageToken, setPageToken] = useState<string>();
   const [loading, setLoading] = useState(true);
@@ -20,11 +22,16 @@ export default function usePhotoLibrary() {
   useEffect(() => {
     const controller = new AbortController();
     requests.current = controller;
+    pageRequest.current = null;
+    setLoading(true);
+    setLoadError(false);
+    setPhotos([]);
+    setPageToken(undefined);
     const { signal } = controller;
 
     async function load() {
       try {
-        const page = await listPhotos(signal);
+        const page = await listPhotos(signal, undefined, filters);
         if (signal.aborted) return;
 
         setPhotos(page.photos);
@@ -38,14 +45,14 @@ export default function usePhotoLibrary() {
 
     void load();
     return () => controller.abort();
-  }, []);
+  }, [filters, revision]);
 
   const loadMore = useCallback(() => {
     const signal = requests.current?.signal;
     if (!signal || signal.aborted || !pageToken || loadError) return;
     if (pageRequest.current?.token === pageToken) return pageRequest.current.result;
 
-    const result = listPhotos(signal, pageToken).then(
+    const result = listPhotos(signal, pageToken, filters).then(
       (page) => {
         if (signal.aborted) return;
 
@@ -60,7 +67,7 @@ export default function usePhotoLibrary() {
     );
     pageRequest.current = { token: pageToken, result };
     return result;
-  }, [loadError, pageToken]);
+  }, [filters, loadError, pageToken]);
 
   useEffect(() => {
     const end = nextPage.current;
