@@ -38,7 +38,7 @@ resource "aws_dynamodb_table" "photos" {
   global_secondary_index {
     name               = "photos-by-state"
     projection_type    = "INCLUDE"
-    non_key_attributes = ["name", "uploadedAt"]
+    non_key_attributes = ["name", "uploadedAt", "tagIds"]
 
     key_schema {
       attribute_name = "state"

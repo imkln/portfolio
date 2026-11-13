@@ -21,6 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/imkln/portfolio/src/backend/internal/api/photos"
+	"github.com/imkln/portfolio/src/backend/internal/api/tags"
 	"github.com/imkln/portfolio/src/backend/internal/api/testutils"
 	photostore "github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
@@ -272,7 +273,8 @@ func TestDeleteMissingPhotoReturnsNotFound(t *testing.T) {
 
 type photoPage struct {
 	Photos []struct {
-		ID string `json:"id"`
+		ID     string   `json:"id"`
+		TagIDs []string `json:"tagIds"`
 	} `json:"photos"`
 	NextPageToken string `json:"nextPageToken"`
 }
@@ -301,6 +303,7 @@ type photoItem struct {
 	state      string
 	uploadKey  string
 	uploadedAt string
+	tagIDs     []string
 }
 
 func photo(id, state string, uploadedAt time.Time) photoItem {
@@ -368,11 +371,15 @@ func (table photoTable) Query(_ context.Context, input *dynamodb.QueryInput, _ .
 			break
 		}
 
-		output.Items = append(output.Items, map[string]types.AttributeValue{
+		attributes := map[string]types.AttributeValue{
 			"id":         &types.AttributeValueMemberS{Value: item.id},
 			"name":       &types.AttributeValueMemberS{Value: item.id + ".jpg"},
 			"uploadedAt": &types.AttributeValueMemberS{Value: item.uploadedAt},
-		})
+		}
+		if len(item.tagIDs) > 0 {
+			attributes["tagIds"] = &types.AttributeValueMemberSS{Value: item.tagIDs}
+		}
+		output.Items = append(output.Items, attributes)
 	}
 	return output, nil
 }
@@ -381,9 +388,11 @@ func (table *photoTable) GetItem(_ context.Context, input *dynamodb.GetItemInput
 	id := input.Key["id"].(*types.AttributeValueMemberS).Value
 	for _, item := range table.items {
 		if item.id == id {
-			return &dynamodb.GetItemOutput{Item: map[string]types.AttributeValue{
-				"state": &types.AttributeValueMemberS{Value: item.state},
-			}}, nil
+			attributes := map[string]types.AttributeValue{"state": &types.AttributeValueMemberS{Value: item.state}}
+			if len(item.tagIDs) > 0 {
+				attributes["tagIds"] = &types.AttributeValueMemberSS{Value: item.tagIDs}
+			}
+			return &dynamodb.GetItemOutput{Item: attributes}, nil
 		}
 	}
 	return &dynamodb.GetItemOutput{}, nil
@@ -426,7 +435,9 @@ func newFileLibrary(owner bool, items ...photoItem) (*http.ServeMux, *fileLibrar
 		files.urls[thumbnailKey] = fileOrigin + thumbnailKey
 	}
 
-	photos.Register(mux, store, files, func(*http.Request) bool { return owner })
+	photos.Register(mux, store, files, func(context.Context) ([]tags.Tag, error) {
+		return []tags.Tag{{ID: "france"}, {ID: "lyon"}, {ID: "paris"}}, nil
+	}, func(*http.Request) bool { return owner })
 	return mux, files
 }
 
@@ -484,6 +495,6 @@ func newUploadLibrary(owner bool) *http.ServeMux {
 		Credentials: aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider("test", "test", "")),
 	})
 	uploads := photostore.NewS3Store(client, "test-photos")
-	photos.Register(mux, nil, uploads, func(*http.Request) bool { return owner })
+	photos.Register(mux, nil, uploads, nil, func(*http.Request) bool { return owner })
 	return mux
 }

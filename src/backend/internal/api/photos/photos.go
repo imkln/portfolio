@@ -11,6 +11,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/imkln/portfolio/src/backend/internal/api/tags"
 	photostore "github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
 
@@ -21,6 +22,7 @@ const (
 
 type Store interface {
 	ListReady(ctx context.Context, pageToken string, limit int32) ([]photostore.Photo, string, error)
+	EditTags(ctx context.Context, photoIDs, add, remove []string) error
 	IsReady(ctx context.Context, id string) (bool, error)
 	CanDelete(ctx context.Context, id string) (bool, error)
 	MarkDeleted(ctx context.Context, id string) (bool, error)
@@ -45,15 +47,17 @@ type page struct {
 }
 
 type handler struct {
-	store   Store
-	files   FileStore
-	isOwner func(*http.Request) bool
+	store    Store
+	loadTags func(context.Context) ([]tags.Tag, error)
+	files    FileStore
+	isOwner  func(*http.Request) bool
 }
 
-func Register(mux *http.ServeMux, store Store, files FileStore, isOwner func(*http.Request) bool) {
-	app := handler{store: store, files: files, isOwner: isOwner}
+func Register(mux *http.ServeMux, store Store, files FileStore, loadTags func(context.Context) ([]tags.Tag, error), isOwner func(*http.Request) bool) {
+	app := handler{store: store, loadTags: loadTags, files: files, isOwner: isOwner}
 	mux.HandleFunc("GET /api/photos", app.list)
 	mux.HandleFunc("POST /api/photos", app.create)
+	mux.HandleFunc("PATCH /api/photos", app.editTags)
 	mux.HandleFunc("GET /api/photos/{id}", app.get(files.OriginalURL))
 	mux.HandleFunc("GET /api/photos/{id}/thumbnail", app.get(files.ThumbnailURL))
 	mux.HandleFunc("DELETE /api/photos/{id}", app.delete)

@@ -20,6 +20,7 @@ type Photo struct {
 	ID         string    `json:"id"`
 	Name       string    `json:"name"`
 	UploadedAt time.Time `json:"uploadedAt"`
+	TagIDs     []string  `json:"tagIds,omitempty"`
 }
 
 func ValidID(id string) bool {
