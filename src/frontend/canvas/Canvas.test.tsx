@@ -145,8 +145,8 @@ it('shows only the configured add actions', () => {
   renderCollectionCanvas();
 
   const actions = screen.getAllByRole('button', { name: /^Add / });
-  expect(actions.map((button) => button.textContent?.trim())).toEqual([
-    '+ Add caption',
-    '+ Add photo',
+  expect(actions.map((button) => button.getAttribute('aria-label'))).toEqual([
+    'Add caption',
+    'Add photo',
   ]);
 });

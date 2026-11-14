@@ -120,7 +120,7 @@ it('should explain why a tag cannot be deleted', async () => {
   const message = 'France can’t be deleted because it has subtags.';
   vi.mocked(deleteTag).mockRejectedValue(new Error(message));
   openEditor({ mode: 'manage', photos: [] });
-  click('France');
+  click('Delete France');
 
   click('Delete tag');
 

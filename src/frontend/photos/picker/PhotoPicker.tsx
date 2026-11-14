@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { Photo } from '../Photo';
 import usePhotoLibrary from '../usePhotoLibrary';
 import PhotoGrid from '../grid/PhotoGrid';
+import ActionIcon from '../../shared/action-bar/ActionIcon';
 import TagFilter from '../tags/TagFilter';
 import useTags from '../tags/useTags';
 import './PhotoPicker.css';
@@ -32,8 +33,8 @@ export default function PhotoPicker({ title, onChoose, onClose }: Props) {
     >
       <header className="photo-picker-header">
         <h2 id={titleId}>{title}</h2>
-        <button type="button" onClick={() => dialog.current?.close()}>
-          Cancel
+        <button type="button" className="photo-picker-close" aria-label="Close photo picker" onClick={() => dialog.current?.close()}>
+          <ActionIcon name="close" />
         </button>
       </header>
 

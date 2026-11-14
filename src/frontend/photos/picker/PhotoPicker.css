@@ -42,3 +42,13 @@
   overflow: auto;
   overscroll-behavior: contain;
 }
+
+.photo-picker-header .photo-picker-close {
+  min-width: 44px;
+  border: 0;
+  background: transparent;
+}
+
+.photo-picker-header .photo-picker-close:hover {
+  background: var(--background);
+}

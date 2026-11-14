@@ -19,7 +19,6 @@ function button(page: Page, name: string) {
 
 test('can apply a filter', async ({ page }) => {
   await openPhotos(page, [['paris'], ['nature']]);
-  await button(page, 'Show subtags of France').click();
 
   await button(page, 'France › Paris').click();
 

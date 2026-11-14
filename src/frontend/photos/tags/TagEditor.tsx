@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Photo } from '../Photo';
 import { createTag, deleteTag, editPhotoTags, type Tag } from '../tagsApi';
+import ActionIcon from '../../shared/action-bar/ActionIcon';
 import TagList, { type TagState } from './TagList';
 import './Tags.css';
 
@@ -27,7 +28,7 @@ function TagDialog({ title, anchored, busy, onClose, children }: {
 }
 
 export default function TagEditor({ mode, tags, photos, onCreated, onDeleted, onApplied, onClose }: {
-  mode: 'edit' | 'create' | 'manage';
+  mode: 'edit' | 'manage';
   tags: Tag[];
   photos: Photo[];
   onCreated: (tag: Tag) => void;
@@ -35,7 +36,7 @@ export default function TagEditor({ mode, tags, photos, onCreated, onDeleted, on
   onApplied: () => void;
   onClose: () => void;
 }) {
-  const [form, setForm] = useState(mode === 'create');
+  const [form, setForm] = useState(false);
   const [name, setName] = useState('');
   const [parent, setParent] = useState<string>();
   const [chooseParent, setChooseParent] = useState(false);
@@ -101,7 +102,7 @@ export default function TagEditor({ mode, tags, photos, onCreated, onDeleted, on
 
     await run(async () => {
       onCreated(await createTag(value, parent));
-      onClose();
+      setForm(false);
     });
   }
 
@@ -155,7 +156,7 @@ export default function TagEditor({ mode, tags, photos, onCreated, onDeleted, on
   function cancel() {
     if (chooseParent && form) {
       pickParent(parent);
-    } else if (editing && form) {
+    } else if (form) {
       setError('');
       setForm(false);
     } else if (deleting) {
@@ -173,7 +174,7 @@ export default function TagEditor({ mode, tags, photos, onCreated, onDeleted, on
   }
 
   const title = form ? 'New tag' : deleting ? `Delete ${deleting.name}?` :
-    editing ? `Edit tags for ${photos.length} ${photos.length === 1 ? 'photo' : 'photos'}` : 'Manage tags';
+    editing ? `Edit tags for ${photos.length} ${photos.length === 1 ? 'photo' : 'photos'}` : 'Tags';
 
   return (
     <TagDialog title={title} anchored={editing && !form} busy={busy} onClose={cancel}>
@@ -184,28 +185,28 @@ export default function TagEditor({ mode, tags, photos, onCreated, onDeleted, on
             <div className="tag-field">
               <span>Parent</span>
               <button ref={parentButton} className="tag-parent" type="button" aria-label={`Parent: ${path(parent)}`} aria-expanded={chooseParent}
-                onClick={() => setChooseParent(!chooseParent)}>{path(parent)} <span aria-hidden="true">⌄</span></button>
+                onClick={() => setChooseParent(!chooseParent)}>{path(parent)} {!chooseParent && <span aria-hidden="true">⌄</span>}</button>
             </div>
             {chooseParent && (
               <div className="tag-parent-list">
                 <button type="button" onClick={() => pickParent()}>None{!parent && ' ✓'}</button>
-                <TagList tags={allTags} selectedParent={parent} state={(id) => id === parent ? 'all' : 'none'}
+                <TagList tags={allTags} state={(id) => id === parent ? 'all' : 'none'}
                   onSelect={pickParent} />
               </div>
             )}
             {error && <p role="alert">{error}</p>}
             <div className="tag-actions"><button type="button" onClick={() => {
               setChooseParent(false);
-              if (editing) setForm(false); else onClose();
+              setForm(false);
               setError('');
             }}>Cancel</button><button className="tag-primary">Create</button></div>
           </form>
         ) : deleting ? (
           <>
-            <p>This removes the tag from photos that use it.</p>
+            {!error && <p>This removes the tag from photos that use it.</p>}
             {error && <p role="alert">{error}</p>}
             <div className="tag-actions"><button type="button" onClick={cancel}>Cancel</button>
-              <button type="button" className="tag-primary" onClick={() => void run(async () => {
+              <button type="button" className="tag-danger" onClick={() => void run(async () => {
                 await deleteTag(deleting.id);
                 onDeleted(deleting.id);
                 setDeleting(undefined);
@@ -215,16 +216,18 @@ export default function TagEditor({ mode, tags, photos, onCreated, onDeleted, on
           <>
             {editing && <input autoFocus type="search" aria-label="Search tags" placeholder="Search tags" value={search} onChange={(event) => setSearch(event.target.value)} />}
             <TagList tags={allTags} search={search} state={(id) => changes[id] ?? original(id)}
-              onSelect={(id) => {
-                if (editing) cycle(id);
-                else setDeleting(tags.find((tag) => tag.id === id));
-              }} />
+              onSelect={cycle} action={editing ? undefined : (tag, path) => (
+                <button type="button" className="tag-delete-icon" aria-label={`Delete ${path}`} title={`Delete ${path}`}
+                  onClick={() => setDeleting(tag)}><ActionIcon name="trash" /></button>
+              )} />
             {editing && search.trim() && !allTags.some((tag) => tag.name.toLowerCase() === search.trim().toLowerCase()) &&
               <button type="button" onClick={() => startCreate(search.trim())}>Create “{search.trim()}”</button>}
             {error && <p role="alert">{error}</p>}
             <div className="tag-actions">
               <button type="button" onClick={onClose}>{editing ? 'Cancel' : 'Done'}</button>
-              {editing && <button type="button" className="tag-primary" disabled={!Object.keys(changes).length} onClick={() => void apply()}>Apply changes</button>}
+              {editing
+                ? <button type="button" className="tag-primary" disabled={!Object.keys(changes).length} onClick={() => void apply()}>Apply changes</button>
+                : <button type="button" className="tag-primary" onClick={() => startCreate('')}>New tag</button>}
             </div>
           </>
         )}

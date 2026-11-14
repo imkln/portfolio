@@ -30,3 +30,15 @@
   opacity: 0.5;
   cursor: default;
 }
+
+.action-icon {
+  display: block;
+  margin: auto;
+}
+
+@media (pointer: coarse) {
+  .action-bar button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

@@ -10,6 +10,12 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  border: 0;
+  background: transparent;
+}
+
+.tag-filter > button:hover {
+  background: var(--surface);
 }
 
 .tag-panel {
@@ -113,11 +119,14 @@
   background: var(--surface);
 }
 
-.tag-row .tag-expand {
-  flex: 0 0 34px;
+.tag-row > span {
+  align-self: center;
+  padding-inline-start: 8px;
+  overflow-wrap: anywhere;
+}
+
+.tag-row .tag-delete-icon {
   margin-inline-start: auto;
-  padding-inline: 4px;
-  text-align: center;
 }
 
 .tag-mark {
@@ -169,10 +178,6 @@
   .tag-panel button {
     min-height: 44px;
   }
-
-  .tag-row .tag-expand {
-    flex-basis: 44px;
-  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -186,4 +191,20 @@
       scale: .95;
     }
   }
+}
+
+.tag-actions .tag-danger {
+  border-color: #8c392e;
+  background: #8c392e;
+  color: #fff7ec;
+}
+
+.tag-parent-list {
+  max-height: 170px;
+  overflow-y: auto;
+}
+
+.tag-parent-list .tag-list {
+  max-height: none;
+  overflow: visible;
 }

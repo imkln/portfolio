@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import ActionIcon from '../shared/action-bar/ActionIcon';
 import ActionBar from '../shared/action-bar/ActionBar';
 import PhotoGrid from './grid/PhotoGrid';
 import PhotoViewer from './viewer/PhotoViewer';
@@ -12,13 +13,14 @@ import './Photos.css';
 export default function Photos() {
   const [filters, setFilters] = useState<string[]>([]);
   const [revision, setRevision] = useState(0);
-  const [tagMode, setTagMode] = useState<'edit' | 'create' | 'manage'>();
+  const [tagMode, setTagMode] = useState<'edit' | 'manage'>();
   const { tags, setTags, tagError } = useTags();
   const library = usePhotoLibrary(filters, revision);
   const { photos, loadMore, upload, uploading, uploadError, remove } = library;
   const [viewing, setViewing] = useState<{ photo: Photo } | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const deleteDialog = useRef<HTMLDialogElement>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(false);
   const anchor = useRef<string | null>(null);
@@ -74,6 +76,7 @@ export default function Photos() {
   }
 
   async function deletePhotos() {
+    deleteDialog.current?.close();
     setDeleting(true);
     setDeleteError(false);
 
@@ -91,17 +94,16 @@ export default function Photos() {
         {!selecting && (
           <button
             type="button"
-            disabled={uploading}
+            aria-label="Upload photos" title="Upload photos" disabled={uploading}
             onClick={() => input.current?.click()}
           >
-            <span aria-hidden="true">+ </span>Upload photos
+            <ActionIcon name="upload" />
           </button>
         )}
         {!selecting && !tagError && (
-          <>
-            <button type="button" onClick={() => setTagMode('create')}>New tag</button>
-            <button type="button" onClick={() => setTagMode('manage')}>Manage tags</button>
-          </>
+          <button type="button" aria-label="Tags" title="Tags" onClick={() => setTagMode('manage')}>
+            <ActionIcon name="tag" />
+          </button>
         )}
         {selecting && (
           <>
@@ -109,22 +111,25 @@ export default function Photos() {
               {selected.size} selected
             </p>
             {!tagError && (
-              <button type="button" disabled={deleting || selected.size === 0 || selected.size > 100}
-                onClick={() => setTagMode('edit')}>Edit tags</button>
+              <button type="button" aria-label="Edit tags" title="Edit tags" disabled={deleting || selected.size === 0 || selected.size > 100}
+                onClick={() => setTagMode('edit')}><ActionIcon name="tag" /></button>
             )}
             <button
-              className="photo-delete"
+              aria-label="Delete" title="Delete photos"
               type="button"
               disabled={deleting || selected.size === 0}
-              onClick={deletePhotos}
+              onClick={() => deleteDialog.current?.showModal()}
             >
-              Delete
+              <ActionIcon name="trash" />
             </button>
           </>
         )}
         <button
           key="selection-mode"
           className={selecting ? 'photo-selection-done' : undefined}
+          aria-label={selecting ? 'Done' : 'Select'}
+          title={selecting ? 'Done' : 'Select'}
+          aria-pressed={selecting}
           ref={modeButton}
           type="button"
           disabled={deleting || (!selecting && photos.length === 0)}
@@ -136,9 +141,17 @@ export default function Photos() {
             setSelecting(!selecting);
           }}
         >
-          {selecting ? 'Done' : 'Select'}
+          <ActionIcon name="select" />
         </button>
       </ActionBar>
+
+      <dialog ref={deleteDialog} className="tag-panel tag-dialog" aria-labelledby="delete-photos-title">
+        <h2 id="delete-photos-title">{selected.size === 1 ? 'Delete photo?' : `Delete ${selected.size} photos?`}</h2>
+        <div className="tag-actions">
+          <button type="button" autoFocus onClick={() => deleteDialog.current?.close()}>Cancel</button>
+          <button type="button" className="tag-danger" onClick={deletePhotos}>Delete</button>
+        </div>
+      </dialog>
 
       <input
         ref={input}

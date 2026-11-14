@@ -204,6 +204,7 @@ test('can retry a photo deletion after a partial failure', async ({ page }) => {
 
   const deleteButton = page.getByRole('button', { name: 'Delete', exact: true });
   await deleteButton.click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
 
   await expect(page.getByRole('alert')).toHaveText('Some photos could not be deleted.');
   await expect(failed).toHaveAttribute('aria-pressed', 'true');
@@ -211,6 +212,7 @@ test('can retry a photo deletion after a partial failure', async ({ page }) => {
 
   await page.unroute('**/api/photos/sample-1');
   await deleteButton.click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
 
   await expect(failed).toHaveCount(0);
   await expect(page.getByRole('alert')).toHaveCount(0);
@@ -255,9 +257,11 @@ test('can edit tags on selected photos', async ({ page }) => {
 
 test('can create a tag', async ({ page }) => {
   await openTagLibrary(page);
+  await photo(page, 'Tags').click();
   await photo(page, 'New tag').click();
   await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Nature');
   await photo(page, 'Create').click();
+  await page.getByRole('dialog', { name: 'Tags', exact: true }).getByRole('button', { name: 'Done' }).click();
 
   await photo(page, 'Filter by tags').click();
   await expect(photo(page, 'Nature')).toBeVisible();
@@ -267,11 +271,11 @@ test('can delete a tag', async ({ page }) => {
   await openTagLibrary(page, [['france'], []]);
   await photo(page, 'Filter by tags').click();
   await photo(page, 'France').click();
-  await photo(page, 'Manage tags').click();
-  await photo(page, 'France').click();
+  await photo(page, 'Tags').click();
+  await photo(page, 'Delete France').click();
   await photo(page, 'Delete tag').click();
 
-  await expect(page.getByRole('dialog').getByRole('button', { name: 'France', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Delete France', exact: true })).toHaveCount(0);
   await photo(page, 'Done').click();
   await expect(photo(page, 'Clear all')).toHaveCount(0);
   await expect(photo(page, 'Photo 2')).toBeVisible();

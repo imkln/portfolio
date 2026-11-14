@@ -9,10 +9,6 @@
   font-size: 13px;
 }
 
-.photo-delete {
-  color: #8c392e;
-}
-
 .action-bar .photo-selection-done {
   background: #d8dce0;
   color: var(--accent);
