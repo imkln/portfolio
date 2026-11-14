@@ -125,4 +125,5 @@ it('should explain why a tag cannot be deleted', async () => {
   click('Delete tag');
 
   expect(await screen.findByRole('alert')).toHaveTextContent(message);
+  expect(screen.queryByRole('button', { name: 'Delete tag' })).not.toBeInTheDocument();
 });

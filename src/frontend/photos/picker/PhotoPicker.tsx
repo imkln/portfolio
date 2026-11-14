@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import dismissOnBackdrop from '../../shared/dismissOnBackdrop';
 import type { Photo } from '../Photo';
 import usePhotoLibrary from '../usePhotoLibrary';
 import PhotoGrid from '../grid/PhotoGrid';
@@ -30,6 +31,7 @@ export default function PhotoPicker({ title, onChoose, onClose }: Props) {
       className="photo-picker"
       aria-labelledby={titleId}
       onClose={onClose}
+      onClick={(event) => dismissOnBackdrop(event, () => dialog.current?.close())}
     >
       <header className="photo-picker-header">
         <h2 id={titleId}>{title}</h2>

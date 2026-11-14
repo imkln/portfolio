@@ -129,6 +129,10 @@
   margin-inline-start: auto;
 }
 
+.tag-panel :is(button, input):focus-visible {
+  outline-offset: -2px;
+}
+
 .tag-mark {
   margin-inline-start: 6px;
   color: var(--accent);
@@ -170,7 +174,7 @@
 
 .tag-panel [role='alert'] {
   margin-top: 8px;
-  color: #8c392e;
+  color: var(--text);
 }
 
 @media (pointer: coarse) {

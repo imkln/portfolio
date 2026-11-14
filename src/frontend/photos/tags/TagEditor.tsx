@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import dismissOnBackdrop from '../../shared/dismissOnBackdrop';
 import type { Photo } from '../Photo';
 import { createTag, deleteTag, editPhotoTags, type Tag } from '../tagsApi';
 import ActionIcon from '../../shared/action-bar/ActionIcon';
 import TagList, { type TagState } from './TagList';
 import './Tags.css';
 
-function TagDialog({ title, anchored, busy, onClose, children }: {
+function TagDialog({ title, anchored, busy, onClose, onDismiss, children }: {
   title: string;
   anchored?: boolean;
   busy: boolean;
   onClose: () => void;
+  onDismiss: () => void;
   children: ReactNode;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -20,6 +22,7 @@ function TagDialog({ title, anchored, busy, onClose, children }: {
 
   return (
     <dialog ref={dialog} aria-label={title} className={`tag-panel tag-dialog${anchored ? ' tag-dialog-anchored' : ''}`}
+      onClick={(event) => { if (!busy) dismissOnBackdrop(event, onDismiss); }}
       onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }}>
       <h2>{title}</h2>
       {children}
@@ -177,7 +180,7 @@ export default function TagEditor({ mode, tags, photos, onCreated, onDeleted, on
     editing ? `Edit tags for ${photos.length} ${photos.length === 1 ? 'photo' : 'photos'}` : 'Tags';
 
   return (
-    <TagDialog title={title} anchored={editing && !form} busy={busy} onClose={cancel}>
+    <TagDialog title={title} anchored={editing && !form} busy={busy} onClose={cancel} onDismiss={onClose}>
       <fieldset disabled={busy}>
         {form ? (
           <form onSubmit={(event) => { event.preventDefault(); void saveTag(); }}>
@@ -205,12 +208,12 @@ export default function TagEditor({ mode, tags, photos, onCreated, onDeleted, on
           <>
             {!error && <p>This removes the tag from photos that use it.</p>}
             {error && <p role="alert">{error}</p>}
-            <div className="tag-actions"><button type="button" onClick={cancel}>Cancel</button>
-              <button type="button" className="tag-danger" onClick={() => void run(async () => {
+            <div className="tag-actions"><button type="button" onClick={cancel}>{error ? 'Done' : 'Cancel'}</button>
+              {!error && <button type="button" className="tag-danger" onClick={() => void run(async () => {
                 await deleteTag(deleting.id);
                 onDeleted(deleting.id);
                 setDeleting(undefined);
-              })}>Delete tag</button></div>
+              })}>Delete tag</button>}</div>
           </>
         ) : (
           <>
@@ -224,7 +227,7 @@ export default function TagEditor({ mode, tags, photos, onCreated, onDeleted, on
               <button type="button" onClick={() => startCreate(search.trim())}>Create “{search.trim()}”</button>}
             {error && <p role="alert">{error}</p>}
             <div className="tag-actions">
-              <button type="button" onClick={onClose}>{editing ? 'Cancel' : 'Done'}</button>
+              <button type="button" autoFocus={!editing} onClick={onClose}>{editing ? 'Cancel' : 'Done'}</button>
               {editing
                 ? <button type="button" className="tag-primary" disabled={!Object.keys(changes).length} onClick={() => void apply()}>Apply changes</button>
                 : <button type="button" className="tag-primary" onClick={() => startCreate('')}>New tag</button>}

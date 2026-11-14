@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import dismissOnBackdrop from '../shared/dismissOnBackdrop';
 import ActionIcon from '../shared/action-bar/ActionIcon';
 import ActionBar from '../shared/action-bar/ActionBar';
 import PhotoGrid from './grid/PhotoGrid';
@@ -145,7 +146,8 @@ export default function Photos() {
         </button>
       </ActionBar>
 
-      <dialog ref={deleteDialog} className="tag-panel tag-dialog" aria-labelledby="delete-photos-title">
+      <dialog ref={deleteDialog} className="tag-panel tag-dialog" aria-labelledby="delete-photos-title"
+        onClick={(event) => dismissOnBackdrop(event, () => deleteDialog.current?.close())}>
         <h2 id="delete-photos-title">{selected.size === 1 ? 'Delete photo?' : `Delete ${selected.size} photos?`}</h2>
         <div className="tag-actions">
           <button type="button" autoFocus onClick={() => deleteDialog.current?.close()}>Cancel</button>
