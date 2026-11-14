@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { samplePhotos } from '../testutils/samplePhotos';
 import { mockApi, mockPhotos } from '../testutils/fakeApi';
 
 function photo(page: Page, name: string) {
@@ -225,4 +226,65 @@ test('can leave selection mode with Done', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Upload photos' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Select', exact: true })).toBeVisible();
   await expect(photo(page, 'Photo 1')).not.toHaveAttribute('aria-pressed');
+});
+
+const france = { id: 'france', name: 'France' };
+
+async function openTagLibrary(page: Page, tagIds: string[][] = [[], []]) {
+  await mockApi(page, { owner: true });
+  await mockPhotos(page, tagIds.map((ids, index) => ({ ...samplePhotos[index], tagIds: ids })), [france]);
+  await page.goto('/photos');
+}
+
+test('can edit tags on selected photos', async ({ page }) => {
+  await openTagLibrary(page, [[], [], []]);
+  await photo(page, 'Select').click();
+  await photo(page, 'Photo 1').click();
+  await photo(page, 'Photo 2').click();
+  await photo(page, 'Edit tags').click();
+  await photo(page, 'France').click();
+
+  const saved = page.waitForRequest((request) => request.method() === 'PATCH' && new URL(request.url()).pathname === '/api/photos');
+  await photo(page, 'Apply changes').click();
+
+  expect((await saved).postDataJSON()).toEqual({
+    photoIds: ['sample-1', 'sample-2'], addTagIds: ['france'], removeTagIds: [],
+  });
+  await expect(photo(page, 'Select')).toBeVisible();
+});
+
+test('can create a tag', async ({ page }) => {
+  await openTagLibrary(page);
+  await photo(page, 'New tag').click();
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Nature');
+  await photo(page, 'Create').click();
+
+  await photo(page, 'Filter by tags').click();
+  await expect(photo(page, 'Nature')).toBeVisible();
+});
+
+test('can delete a tag', async ({ page }) => {
+  await openTagLibrary(page, [['france'], []]);
+  await photo(page, 'Filter by tags').click();
+  await photo(page, 'France').click();
+  await photo(page, 'Manage tags').click();
+  await photo(page, 'France').click();
+  await photo(page, 'Delete tag').click();
+
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'France', exact: true })).toHaveCount(0);
+  await photo(page, 'Done').click();
+  await expect(photo(page, 'Clear all')).toHaveCount(0);
+  await expect(photo(page, 'Photo 2')).toBeVisible();
+});
+
+test('should show when tags fail to load', async ({ page }) => {
+  await mockApi(page, { owner: true });
+  await mockPhotos(page, samplePhotos.slice(0, 1));
+  await page.route('**/api/tags', (route) => route.fulfill({ status: 500 }));
+
+  await page.goto('/photos');
+
+  await expect(page.getByRole('alert')).toHaveText('Could not load tags.');
+  await photo(page, 'Photo 1').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
 });
