@@ -239,20 +239,61 @@ async function openTagLibrary(page: Page, tagIds: string[][] = [[], []]) {
 }
 
 test('can edit tags on selected photos', async ({ page }) => {
-  await openTagLibrary(page, [[], [], []]);
+  await openTagLibrary(page, [['france'], ['france'], []]);
+  await photo(page, 'Filter by tags').click();
+  await photo(page, 'France').click();
+  await expect(photo(page, 'Photo 3')).toHaveCount(0);
+  await photo(page, 'Filter by tags, 1 active').click();
   await photo(page, 'Select').click();
   await photo(page, 'Photo 1').click();
-  await photo(page, 'Photo 2').click();
   await photo(page, 'Edit tags').click();
   await photo(page, 'France').click();
 
-  const saved = page.waitForRequest((request) => request.method() === 'PATCH' && new URL(request.url()).pathname === '/api/photos');
   await photo(page, 'Apply changes').click();
 
-  expect((await saved).postDataJSON()).toEqual({
-    photoIds: ['sample-1', 'sample-2'], addTagIds: ['france'], removeTagIds: [],
-  });
   await expect(photo(page, 'Select')).toBeVisible();
+  await expect(photo(page, 'Photo 2')).toBeVisible();
+  await expect(photo(page, 'Photo 1')).toHaveCount(0);
+});
+
+test('can finish uploading after changing a tag filter', async ({ page }) => {
+  await mockApi(page, { owner: true });
+  const france = { id: 'france', name: 'France' };
+  const api = await mockPhotos(page, [{ ...samplePhotos[0], tagIds: [france.id] }, samplePhotos[1]], [france]);
+  let releaseUpload!: () => void;
+  const uploadReady = new Promise<void>((resolve) => { releaseUpload = resolve; });
+  await page.route('**/test-photo-uploads/*', async (route) => {
+    await uploadReady;
+    await route.fallback();
+  });
+  await page.goto('/photos');
+  const pending = page.waitForRequest('**/test-photo-uploads/*');
+
+  try {
+    await uploadPhotos(page, 'Trail.jpg', 'Shore.jpg');
+    await pending;
+    await photo(page, 'Filter by tags').click();
+    await photo(page, 'France').click();
+    await expect(photo(page, 'Photo 2')).toHaveCount(0);
+  } finally {
+    releaseUpload();
+  }
+
+  await expect.poll(() => api.received).toEqual(['Trail.jpg', 'Shore.jpg']);
+  await expect(photo(page, 'Upload photos')).toBeEnabled();
+});
+
+test('can return focus to the new-tag trigger with Escape', async ({ page }) => {
+  await openTagLibrary(page);
+  await photo(page, 'Tags').click();
+  await photo(page, 'New tag').click();
+  const form = page.getByRole('dialog', { name: 'New tag' });
+  await expect(form.getByRole('textbox', { name: 'Name' })).toBeFocused();
+
+  await page.keyboard.press('Escape');
+
+  await expect(form).toHaveCount(0);
+  await expect(photo(page, 'New tag')).toBeFocused();
 });
 
 test('can create a tag', async ({ page }) => {

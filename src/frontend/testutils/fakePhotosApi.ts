@@ -40,9 +40,6 @@ export function createFakePhotosApi(initialPhotos: Photo[] = samplePhotos, initi
         return Response.json({ error: `${tag.name} can’t be deleted because it has subtags.` }, { status: 409 });
       }
       tags.delete(id);
-      for (const photo of photos.values()) {
-        photos.set(photo.id, { ...photo, tagIds: photo.tagIds?.filter((tagId) => tagId !== id) });
-      }
       return new Response(null, { status: 204 });
     }
 
@@ -88,7 +85,9 @@ export function createFakePhotosApi(initialPhotos: Photo[] = samplePhotos, initi
       const end = start + 24;
 
       return Response.json({
-        photos: all.slice(start, end).map(details),
+        photos: all.slice(start, end).map((photo) => details({
+          ...photo, tagIds: photo.tagIds?.filter((id) => tags.has(id)),
+        })),
         nextPageToken: end < all.length ? String(end) : undefined,
       });
     }

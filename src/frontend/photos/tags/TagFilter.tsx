@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { Tag } from '../tagsApi';
-import TagList from './TagList';
+import TagList, { tagRows } from './TagList';
 import './Tags.css';
 
 export default function TagFilter({ tags, selected, onChange, disabled }: {
@@ -45,7 +45,7 @@ export default function TagFilter({ tags, selected, onChange, disabled }: {
         {selected.length > 0 && <span aria-hidden="true">{selected.length}</span>}
       </button>
       <div id={id} className="tag-panel tag-filter-panel" hidden={!open || disabled}>
-        {tags.length ? <TagList tags={tags} state={(tag) => selected.includes(tag) ? 'all' : 'none'}
+        {tags.length ? <TagList rows={tagRows(tags)} state={(tag) => selected.includes(tag) ? 'all' : 'none'}
           onSelect={(tag) => onChange(selected.includes(tag) ? selected.filter((id) => id !== tag) : [...selected, tag])} />
           : <p>No tags yet.</p>}
       </div>

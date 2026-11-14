@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import dismissOnBackdrop from '../shared/dismissOnBackdrop';
+import Dialog from '../shared/dialog/Dialog';
 import ActionIcon from '../shared/action-bar/ActionIcon';
 import ActionBar from '../shared/action-bar/ActionBar';
 import PhotoGrid from './grid/PhotoGrid';
@@ -8,6 +8,7 @@ import type { Photo } from './Photo';
 import usePhotoLibrary from './usePhotoLibrary';
 import TagFilter from './tags/TagFilter';
 import TagEditor from './tags/TagEditor';
+import TagManager from './tags/TagManager';
 import useTags from './tags/useTags';
 import './Photos.css';
 
@@ -21,7 +22,7 @@ export default function Photos() {
   const [viewing, setViewing] = useState<{ photo: Photo } | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const deleteDialog = useRef<HTMLDialogElement>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(false);
   const anchor = useRef<string | null>(null);
@@ -77,7 +78,7 @@ export default function Photos() {
   }
 
   async function deletePhotos() {
-    deleteDialog.current?.close();
+    setConfirmingDelete(false);
     setDeleting(true);
     setDeleteError(false);
 
@@ -112,14 +113,14 @@ export default function Photos() {
               {selected.size} selected
             </p>
             {!tagError && (
-              <button type="button" aria-label="Edit tags" title="Edit tags" disabled={deleting || selected.size === 0 || selected.size > 100}
+              <button type="button" aria-label="Edit tags" title="Edit tags" disabled={deleting || selected.size === 0 || selected.size > 99}
                 onClick={() => setTagMode('edit')}><ActionIcon name="tag" /></button>
             )}
             <button
               aria-label="Delete" title="Delete photos"
               type="button"
               disabled={deleting || selected.size === 0}
-              onClick={() => deleteDialog.current?.showModal()}
+              onClick={() => setConfirmingDelete(true)}
             >
               <ActionIcon name="trash" />
             </button>
@@ -146,14 +147,15 @@ export default function Photos() {
         </button>
       </ActionBar>
 
-      <dialog ref={deleteDialog} className="tag-panel tag-dialog" aria-labelledby="delete-photos-title"
-        onClick={(event) => dismissOnBackdrop(event, () => deleteDialog.current?.close())}>
-        <h2 id="delete-photos-title">{selected.size === 1 ? 'Delete photo?' : `Delete ${selected.size} photos?`}</h2>
-        <div className="tag-actions">
-          <button type="button" autoFocus onClick={() => deleteDialog.current?.close()}>Cancel</button>
-          <button type="button" className="tag-danger" onClick={deletePhotos}>Delete</button>
-        </div>
-      </dialog>
+      {confirmingDelete && (
+        <Dialog className="tag-panel tag-dialog" aria-labelledby="delete-photos-title" onDismiss={() => setConfirmingDelete(false)}>
+          <h2 id="delete-photos-title">{selected.size === 1 ? 'Delete photo?' : `Delete ${selected.size} photos?`}</h2>
+          <div className="tag-actions">
+            <button type="button" autoFocus onClick={() => setConfirmingDelete(false)}>Cancel</button>
+            <button type="button" className="tag-danger" onClick={deletePhotos}>Delete</button>
+          </div>
+        </Dialog>
+      )}
 
       <input
         ref={input}
@@ -185,14 +187,19 @@ export default function Photos() {
         }}
       />
 
-      {tagMode && (
-        <TagEditor mode={tagMode} tags={tags} photos={photos.filter((photo) => selected.has(photo.id))}
+      {tagMode === 'manage' && (
+        <TagManager tags={tags}
           onCreated={(tag) => setTags((current) => [...current, tag])}
           onDeleted={(id) => {
             setTags((current) => current.filter((tag) => tag.id !== id));
             setFilters((current) => current.includes(id) ? current.filter((tag) => tag !== id) : current);
             setRevision((current) => current + 1);
           }}
+          onClose={() => setTagMode(undefined)} />
+      )}
+      {tagMode === 'edit' && (
+        <TagEditor tags={tags} photos={photos.filter((photo) => selected.has(photo.id))}
+          onCreated={(tag) => setTags((current) => [...current, tag])}
           onApplied={() => {
             clearSelection();
             setSelecting(false);

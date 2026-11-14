@@ -56,14 +56,42 @@ func TestCanLoadMoreFilteredPhotos(t *testing.T) {
 	app := newLibrary(true, items...)
 	path := "/api/photos?tagId=france"
 
+	var got []string
+	requestPath := path
+	for {
+		page := readPage(t, testutils.Request(app, http.MethodGet, requestPath, ""))
+		got = append(got, page.ids()...)
+		if page.NextPageToken == "" {
+			break
+		}
+		next := path + "&pageToken=" + url.QueryEscape(page.NextPageToken)
+		if next == requestPath {
+			t.Fatal("page token did not advance")
+		}
+		requestPath = next
+	}
+
+	if !slices.Equal(got, want) {
+		t.Fatalf("photos = %v, want %v", got, want)
+	}
+}
+
+func TestFilteredPageCanContinueWithoutMatches(t *testing.T) {
+	items := []photoItem{photoWithTags("a", "france")}
+	for i := 0; i < 24; i++ {
+		items = append(items, photoWithTags(fmt.Sprintf("skip-%02d", i)))
+	}
+	app := newLibrary(true, items...)
+	path := "/api/photos?tagId=france"
+
 	first := readPage(t, testutils.Request(app, http.MethodGet, path, ""))
-	if first.NextPageToken == "" {
-		t.Fatal("first page has no next page token")
+	if len(first.Photos) != 0 || first.NextPageToken == "" {
+		t.Fatalf("first page = %+v, want no photos and a continuation token", first)
 	}
 	next := readPage(t, testutils.Request(app, http.MethodGet, path+"&pageToken="+url.QueryEscape(first.NextPageToken), ""))
 
-	if got := append(first.ids(), next.ids()...); !slices.Equal(got, want) {
-		t.Fatalf("photos = %v, want %v", got, want)
+	if !slices.Equal(next.ids(), []string{"a"}) {
+		t.Fatalf("photos = %v, want [a]", next.ids())
 	}
 }
 

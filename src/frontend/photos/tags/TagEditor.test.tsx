@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { samplePhotos } from '../../testutils/samplePhotos';
 import { createTag, deleteTag, editPhotoTags } from '../tagsApi';
 import TagEditor from './TagEditor';
+import TagManager from './TagManager';
 
 vi.mock('../tagsApi', () => ({
   createTag: vi.fn(),
@@ -19,6 +20,10 @@ beforeEach(() => {
       configurable: true,
       value(this: HTMLDialogElement) { this.open = true; },
     });
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+      configurable: true,
+      value(this: HTMLDialogElement) { this.open = false; },
+    });
   }
 });
 
@@ -28,8 +33,8 @@ const france = { id: 'france', name: 'France' };
 const paris = { id: 'paris', name: 'Paris', parentId: france.id };
 
 function openEditor(overrides: Partial<ComponentProps<typeof TagEditor>> = {}) {
-  const callbacks = { onCreated: vi.fn(), onDeleted: vi.fn(), onApplied: vi.fn(), onClose: vi.fn() };
-  render(<TagEditor mode="edit" tags={[france, paris]} photos={[
+  const callbacks = { onCreated: vi.fn(), onApplied: vi.fn(), onClose: vi.fn() };
+  render(<TagEditor tags={[france, paris]} photos={[
     { ...samplePhotos[0], tagIds: [france.id] }, samplePhotos[1],
   ]} {...callbacks} {...overrides} />);
   return callbacks;
@@ -88,38 +93,35 @@ it('can cancel tag edits', () => {
   expect(editPhotoTags).not.toHaveBeenCalled();
 });
 
-it('can create a nested tag while editing', async () => {
-  vi.mocked(createTag).mockResolvedValue({ id: 'nice', name: 'Nice', parentId: france.id });
-  const { onApplied } = openEditor();
+it('can create a nested tag before applying assignments', async () => {
+  const nice = { id: 'nice', name: 'Nice', parentId: france.id };
+  vi.mocked(createTag).mockResolvedValue(nice);
+  const { onCreated } = openEditor();
 
   prepareNestedTag();
-  expect(createTag).not.toHaveBeenCalled();
-  click('Apply changes');
 
-  await waitFor(() => expect(onApplied).toHaveBeenCalledOnce());
+  await waitFor(() => expect(onCreated).toHaveBeenCalledWith(nice));
   expect(createTag).toHaveBeenCalledWith('Nice', france.id);
-  expect(editPhotoTags).toHaveBeenCalledWith(['sample-1', 'sample-2'], ['nice'], []);
+  expect(editPhotoTags).not.toHaveBeenCalled();
 });
 
 it('can retry saving tag edits', async () => {
-  vi.mocked(createTag).mockResolvedValue({ id: 'nice', name: 'Nice', parentId: france.id });
   vi.mocked(editPhotoTags).mockRejectedValueOnce(new Error('Could not update photo tags.'));
   const { onApplied } = openEditor();
-  prepareNestedTag();
+  click('France');
   click('Apply changes');
   await screen.findByRole('alert');
 
   click('Apply changes');
 
   await waitFor(() => expect(onApplied).toHaveBeenCalledOnce());
-  expect(createTag).toHaveBeenCalledOnce();
-  expect(editPhotoTags).toHaveBeenLastCalledWith(['sample-1', 'sample-2'], ['nice'], []);
+  expect(editPhotoTags).toHaveBeenLastCalledWith(['sample-1', 'sample-2'], ['france'], []);
 });
 
 it('should explain why a tag cannot be deleted', async () => {
   const message = 'France can’t be deleted because it has subtags.';
   vi.mocked(deleteTag).mockRejectedValue(new Error(message));
-  openEditor({ mode: 'manage', photos: [] });
+  render(<TagManager tags={[france, paris]} onCreated={vi.fn()} onDeleted={vi.fn()} onClose={vi.fn()} />);
   click('Delete France');
 
   click('Delete tag');

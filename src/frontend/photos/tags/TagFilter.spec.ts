@@ -50,20 +50,21 @@ test('can clear filters', async ({ page }) => {
   await expect(button(page, 'Photo 2')).toBeVisible();
 });
 
-test('can load more filtered photos', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openPhotos(page, Array.from({ length: 26 }, (_, index) => index === 1 ? ['nature'] : ['paris']));
-  await button(page, 'France').click();
-  await button(page, 'Filter by tags, 1 active').click();
-  await expect(button(page, 'Photo 2')).toHaveCount(0);
-  await expect(button(page, 'Photo 26')).toHaveCount(0);
+test('can load more filtered photos after an empty page', async ({ page }) => {
+  await openPhotos(page, [['paris'], ['nature']]);
+  const filteredRequests: string[][] = [];
+  await page.route((url) => url.pathname === '/api/photos' && (url.searchParams.has('tagId') || url.searchParams.has('pageToken')), (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    filteredRequests.push(params.getAll('tagId'));
 
-  const next = page.waitForRequest((request) => {
-    const url = new URL(request.url());
-    return url.pathname === '/api/photos' && url.searchParams.has('pageToken');
+    return route.fulfill({ json: params.get('pageToken') === 'next'
+      ? { photos: [samplePhotos[2]] }
+      : { photos: [], nextPageToken: 'next' } });
   });
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
 
-  expect(new URL((await next).url()).searchParams.getAll('tagId')).toEqual(['france']);
-  await expect(button(page, 'Photo 26')).toBeVisible();
+  await button(page, 'France').click();
+
+  await expect(button(page, 'Photo 3')).toBeVisible();
+  await expect(button(page, 'Photo 2')).toHaveCount(0);
+  expect(filteredRequests).toEqual([['france'], ['france']]);
 });

@@ -8,7 +8,7 @@ import (
 )
 
 func (app *handler) listPhotos(ctx context.Context, token string, filters []string) ([]photostore.Photo, string, error) {
-	tags, err := app.loadTags(ctx)
+	tags, err := app.catalog.List(ctx)
 	if err != nil {
 		return nil, "", err
 	}
@@ -17,28 +17,23 @@ func (app *handler) listPhotos(ctx context.Context, token string, filters []stri
 		parents[tag.ID] = tag.ParentID
 	}
 
-	matches := make([]photostore.Photo, 0, pageSize)
-	for {
-		photos, next, err := app.store.ListReady(ctx, token, int32(pageSize-len(matches)))
-		if err != nil {
-			return nil, "", err
-		}
-
-		for _, photo := range photos {
-			if len(filters) == 0 || matchesTags(photo.TagIDs, filters, parents) {
-				photo.TagIDs = slices.DeleteFunc(photo.TagIDs, func(id string) bool {
-					_, exists := parents[id]
-					return !exists
-				})
-				matches = append(matches, photo)
-			}
-		}
-
-		if next == "" || len(matches) == pageSize {
-			return matches, next, nil
-		}
-		token = next
+	photos, next, err := app.store.ListReady(ctx, token, pageSize)
+	if err != nil {
+		return nil, "", err
 	}
+
+	matches := make([]photostore.Photo, 0, len(photos))
+	for _, photo := range photos {
+		if len(filters) == 0 || matchesTags(photo.TagIDs, filters, parents) {
+			photo.TagIDs = slices.DeleteFunc(photo.TagIDs, func(id string) bool {
+				_, exists := parents[id]
+				return !exists
+			})
+			matches = append(matches, photo)
+		}
+	}
+
+	return matches, next, nil
 }
 
 func matchesTags(photoTags, filters []string, parents map[string]string) bool {

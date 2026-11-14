@@ -321,7 +321,9 @@ func newLibrary(owner bool, items ...photoItem) *http.ServeMux {
 }
 
 type photoTable struct {
-	items []photoItem
+	items       []photoItem
+	beforeWrite func()
+	catalog     string
 }
 
 func (table photoTable) Query(_ context.Context, input *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
@@ -426,19 +428,42 @@ func readyPhoto(owner bool) (*http.ServeMux, *fileLibrary) {
 }
 
 func newFileLibrary(owner bool, items ...photoItem) (*http.ServeMux, *fileLibrary) {
+	return newTableLibrary(owner, &photoTable{items: items, catalog: "catalog"})
+}
+
+func newTableLibrary(owner bool, table *photoTable) (*http.ServeMux, *fileLibrary) {
 	mux := http.NewServeMux()
-	table := &photoTable{items: items}
 	store := photostore.NewDynamoStore(table, "test-photos")
 	files := &fileLibrary{urls: make(map[string]string)}
-	if len(items) > 0 {
+	if len(table.items) > 0 {
 		files.urls[originalKey] = fileOrigin + originalKey
 		files.urls[thumbnailKey] = fileOrigin + thumbnailKey
 	}
 
-	photos.Register(mux, store, files, func(context.Context) ([]tags.Tag, error) {
-		return []tags.Tag{{ID: "france"}, {ID: "lyon", ParentID: "france"}, {ID: "paris", ParentID: "france"}, {ID: "architecture"}}, nil
-	}, func(*http.Request) bool { return owner })
+	photos.Register(mux, store, files, testCatalog{table.catalog}, func(*http.Request) bool { return owner })
 	return mux, files
+}
+
+type testCatalog struct {
+	snapshot string
+}
+
+func (testCatalog) List(context.Context) ([]tags.Tag, error) {
+	return []tags.Tag{{ID: "france"}, {ID: "lyon", ParentID: "france"}, {ID: "paris", ParentID: "france"}, {ID: "architecture"}}, nil
+}
+
+func (catalog testCatalog) CheckAssignment(ctx context.Context, ids []string) (*types.ConditionCheck, error) {
+	items, _ := catalog.List(ctx)
+	for _, id := range ids {
+		if !slices.ContainsFunc(items, func(tag tags.Tag) bool { return tag.ID == id }) {
+			return nil, tags.ErrUnknownTag
+		}
+	}
+	return &types.ConditionCheck{
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":previous": &types.AttributeValueMemberS{Value: catalog.snapshot},
+		},
+	}, nil
 }
 
 type fileLibrary struct {

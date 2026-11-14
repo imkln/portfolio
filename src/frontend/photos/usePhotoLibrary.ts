@@ -17,7 +17,14 @@ export default function usePhotoLibrary(filters = noFilters, revision = 0) {
   const [uploadError, setUploadError] = useState('');
   const nextPage = useRef<HTMLDivElement>(null);
   const requests = useRef<AbortController | null>(null);
+  const mutations = useRef<AbortController | null>(null);
   const pageRequest = useRef<{ token: string; result: Promise<Photo[] | undefined> } | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    mutations.current = controller;
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -85,7 +92,7 @@ export default function usePhotoLibrary(filters = noFilters, revision = 0) {
   }, [loadMore]);
 
   async function upload(files: FileList) {
-    const signal = requests.current?.signal;
+    const signal = mutations.current?.signal;
     if (!signal || signal.aborted || uploading) return;
 
     const selected = Array.from(files);
@@ -116,9 +123,9 @@ export default function usePhotoLibrary(filters = noFilters, revision = 0) {
   }
 
   async function remove(ids: ReadonlySet<string>) {
-    const signal = requests.current?.signal;
+    const signal = mutations.current?.signal;
     const failed = new Set(ids);
-    if (!signal) return failed;
+    if (!signal || signal.aborted) return failed;
 
     for (const id of ids) {
       if (signal.aborted) break;

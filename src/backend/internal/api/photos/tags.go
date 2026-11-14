@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"slices"
 
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+
+	"github.com/imkln/portfolio/src/backend/internal/api/tags"
 	photostore "github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
 
@@ -31,27 +34,22 @@ func (app *handler) editTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var catalog *types.ConditionCheck
 	if len(edit.AddTagIDs) > 0 {
-		tags, err := app.loadTags(r.Context())
+		var err error
+		catalog, err = app.catalog.CheckAssignment(r.Context(), edit.AddTagIDs)
+		if errors.Is(err, tags.ErrUnknownTag) {
+			writeError(w, http.StatusNotFound)
+			return
+		}
 		if err != nil {
 			slog.ErrorContext(r.Context(), "load tags for photo edit", "error", err)
 			writeError(w, http.StatusInternalServerError)
 			return
 		}
-
-		known := make(map[string]bool, len(tags))
-		for _, tag := range tags {
-			known[tag.ID] = true
-		}
-		for _, id := range edit.AddTagIDs {
-			if !known[id] {
-				writeError(w, http.StatusNotFound)
-				return
-			}
-		}
 	}
 
-	err := app.store.EditTags(r.Context(), edit.PhotoIDs, edit.AddTagIDs, edit.RemoveTagIDs)
+	err := app.store.EditTags(r.Context(), edit.PhotoIDs, edit.AddTagIDs, edit.RemoveTagIDs, catalog)
 	switch {
 	case err == nil:
 		w.WriteHeader(http.StatusNoContent)

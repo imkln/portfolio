@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-const MaxTagEditPhotos = 100
+const MaxTagEditPhotos = 99 // Reserve one transaction action for the tag catalog.
 
 var (
 	ErrPhotoNotFound = errors.New("photo not found")
@@ -25,8 +25,11 @@ func readTagIDs(item map[string]types.AttributeValue) []string {
 	return slices.Clone(tags.Value)
 }
 
-func (store *dynamoStore) EditTags(ctx context.Context, photoIDs, add, remove []string) error {
-	writes := make([]types.TransactWriteItem, 0, len(photoIDs))
+func (store *dynamoStore) EditTags(ctx context.Context, photoIDs, add, remove []string, catalog *types.ConditionCheck) error {
+	writes := make([]types.TransactWriteItem, 0, len(photoIDs)+1)
+	if catalog != nil {
+		writes = append(writes, types.TransactWriteItem{ConditionCheck: catalog})
+	}
 	for _, id := range photoIDs {
 		item, err := store.client.GetItem(ctx, &dynamodb.GetItemInput{
 			TableName:      aws.String(store.table),

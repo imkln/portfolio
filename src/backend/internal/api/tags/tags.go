@@ -2,15 +2,11 @@ package tags
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
 	"net/http"
-	"slices"
-	"strings"
-	"unicode"
 )
 
 type Tag struct {
@@ -20,16 +16,10 @@ type Tag struct {
 }
 
 type Store interface {
-	Load(context.Context) ([]Tag, error)
-	Update(context.Context, func(*[]Tag) error) error
+	List(context.Context) ([]Tag, error)
+	Create(context.Context, string, string) (Tag, error)
+	Delete(context.Context, string) error
 }
-
-type problem struct {
-	status  int
-	message string
-}
-
-func (p *problem) Error() string { return p.message }
 
 func Register(mux *http.ServeMux, store Store, isOwner func(*http.Request) bool) {
 	app := handler{store: store}
@@ -54,7 +44,7 @@ type handler struct {
 }
 
 func (app handler) list(w http.ResponseWriter, r *http.Request) {
-	tags, err := app.store.Load(r.Context())
+	tags, err := app.store.List(r.Context())
 	if err != nil {
 		writeError(w, r, err)
 		return
@@ -74,31 +64,11 @@ func (app handler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
 	if err := decoder.Decode(&input); err != nil || decoder.Decode(new(any)) != io.EOF {
-		writeError(w, r, &problem{http.StatusBadRequest, "Invalid tag."})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid tag."})
 		return
 	}
 
-	name := strings.TrimSpace(input.Name)
-	if name == "" || len([]rune(name)) > 90 || strings.ContainsAny(name, "›>") || strings.ContainsFunc(name, unicode.IsControl) {
-		writeError(w, r, &problem{http.StatusBadRequest, "Invalid tag name."})
-		return
-	}
-
-	tag := Tag{ID: rand.Text(), Name: name, ParentID: input.ParentID}
-	err := app.store.Update(r.Context(), func(tags *[]Tag) error {
-		if tag.ParentID != "" && tagIndex(*tags, tag.ParentID) == -1 {
-			return &problem{http.StatusNotFound, "Parent tag not found."}
-		}
-
-		for _, existing := range *tags {
-			if existing.ParentID == tag.ParentID && strings.EqualFold(existing.Name, tag.Name) {
-				return &problem{http.StatusConflict, "A tag with that name already exists under the same parent."}
-			}
-		}
-
-		*tags = append(*tags, tag)
-		return nil
-	})
+	tag, err := app.store.Create(r.Context(), input.Name, input.ParentID)
 	if err != nil {
 		writeError(w, r, err)
 		return
@@ -108,22 +78,7 @@ func (app handler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app handler) delete(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	err := app.store.Update(r.Context(), func(tags *[]Tag) error {
-		index := tagIndex(*tags, id)
-		if index == -1 {
-			return &problem{http.StatusNotFound, "Tag not found."}
-		}
-
-		for _, tag := range *tags {
-			if tag.ParentID == id {
-				return &problem{http.StatusConflict, (*tags)[index].Name + " can’t be deleted because it has subtags."}
-			}
-		}
-
-		*tags = slices.Delete(*tags, index, index+1)
-		return nil
-	})
+	err := app.store.Delete(r.Context(), r.PathValue("id"))
 	if err != nil {
 		writeError(w, r, err)
 		return
@@ -132,19 +87,27 @@ func (app handler) delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func tagIndex(tags []Tag, id string) int {
-	return slices.IndexFunc(tags, func(tag Tag) bool { return tag.ID == id })
-}
-
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
-	var issue *problem
-	if errors.As(err, &issue) {
-		writeJSON(w, issue.status, map[string]string{"error": issue.message})
-		return
+	var children *hasSubtags
+	switch {
+	case errors.Is(err, errInvalidName):
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid tag name."})
+	case errors.Is(err, errMissingParent):
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Parent tag not found."})
+	case errors.Is(err, ErrUnknownTag):
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Tag not found."})
+	case errors.Is(err, errDuplicateName):
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "A tag with that name already exists under the same parent."})
+	case errors.Is(err, errCatalogChanged):
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "Tags changed. Try again."})
+	case errors.Is(err, errCatalogFull):
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "The tag list is full."})
+	case errors.As(err, &children):
+		writeJSON(w, http.StatusConflict, map[string]string{"error": children.name + " can’t be deleted because it has subtags."})
+	default:
+		slog.ErrorContext(r.Context(), "tags request", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Could not complete the tag request."})
 	}
-
-	slog.ErrorContext(r.Context(), "tags request", "error", err)
-	writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Could not complete the tag request."})
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
