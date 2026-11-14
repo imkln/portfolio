@@ -21,6 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/imkln/portfolio/src/backend/internal/api/photos"
+	"github.com/imkln/portfolio/src/backend/internal/api/tags"
 	"github.com/imkln/portfolio/src/backend/internal/api/testutils"
 	photostore "github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
@@ -272,7 +273,8 @@ func TestDeleteMissingPhotoReturnsNotFound(t *testing.T) {
 
 type photoPage struct {
 	Photos []struct {
-		ID string `json:"id"`
+		ID     string   `json:"id"`
+		TagIDs []string `json:"tagIds"`
 	} `json:"photos"`
 	NextPageToken string `json:"nextPageToken"`
 }
@@ -301,6 +303,7 @@ type photoItem struct {
 	state      string
 	uploadKey  string
 	uploadedAt string
+	tagIDs     []string
 }
 
 func photo(id, state string, uploadedAt time.Time) photoItem {
@@ -318,7 +321,9 @@ func newLibrary(owner bool, items ...photoItem) *http.ServeMux {
 }
 
 type photoTable struct {
-	items []photoItem
+	items       []photoItem
+	beforeWrite func()
+	catalog     string
 }
 
 func (table photoTable) Query(_ context.Context, input *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
@@ -368,11 +373,15 @@ func (table photoTable) Query(_ context.Context, input *dynamodb.QueryInput, _ .
 			break
 		}
 
-		output.Items = append(output.Items, map[string]types.AttributeValue{
+		attributes := map[string]types.AttributeValue{
 			"id":         &types.AttributeValueMemberS{Value: item.id},
 			"name":       &types.AttributeValueMemberS{Value: item.id + ".jpg"},
 			"uploadedAt": &types.AttributeValueMemberS{Value: item.uploadedAt},
-		})
+		}
+		if len(item.tagIDs) > 0 {
+			attributes["tagIds"] = &types.AttributeValueMemberSS{Value: item.tagIDs}
+		}
+		output.Items = append(output.Items, attributes)
 	}
 	return output, nil
 }
@@ -381,9 +390,11 @@ func (table *photoTable) GetItem(_ context.Context, input *dynamodb.GetItemInput
 	id := input.Key["id"].(*types.AttributeValueMemberS).Value
 	for _, item := range table.items {
 		if item.id == id {
-			return &dynamodb.GetItemOutput{Item: map[string]types.AttributeValue{
-				"state": &types.AttributeValueMemberS{Value: item.state},
-			}}, nil
+			attributes := map[string]types.AttributeValue{"state": &types.AttributeValueMemberS{Value: item.state}}
+			if len(item.tagIDs) > 0 {
+				attributes["tagIds"] = &types.AttributeValueMemberSS{Value: item.tagIDs}
+			}
+			return &dynamodb.GetItemOutput{Item: attributes}, nil
 		}
 	}
 	return &dynamodb.GetItemOutput{}, nil
@@ -417,17 +428,42 @@ func readyPhoto(owner bool) (*http.ServeMux, *fileLibrary) {
 }
 
 func newFileLibrary(owner bool, items ...photoItem) (*http.ServeMux, *fileLibrary) {
+	return newTableLibrary(owner, &photoTable{items: items, catalog: "catalog"})
+}
+
+func newTableLibrary(owner bool, table *photoTable) (*http.ServeMux, *fileLibrary) {
 	mux := http.NewServeMux()
-	table := &photoTable{items: items}
 	store := photostore.NewDynamoStore(table, "test-photos")
 	files := &fileLibrary{urls: make(map[string]string)}
-	if len(items) > 0 {
+	if len(table.items) > 0 {
 		files.urls[originalKey] = fileOrigin + originalKey
 		files.urls[thumbnailKey] = fileOrigin + thumbnailKey
 	}
 
-	photos.Register(mux, store, files, func(*http.Request) bool { return owner })
+	photos.Register(mux, store, files, testCatalog{table.catalog}, func(*http.Request) bool { return owner })
 	return mux, files
+}
+
+type testCatalog struct {
+	snapshot string
+}
+
+func (testCatalog) List(context.Context) ([]tags.Tag, error) {
+	return []tags.Tag{{ID: "france"}, {ID: "lyon", ParentID: "france"}, {ID: "paris", ParentID: "france"}, {ID: "architecture"}}, nil
+}
+
+func (catalog testCatalog) CheckAssignment(ctx context.Context, ids []string) (*types.ConditionCheck, error) {
+	items, _ := catalog.List(ctx)
+	for _, id := range ids {
+		if !slices.ContainsFunc(items, func(tag tags.Tag) bool { return tag.ID == id }) {
+			return nil, tags.ErrUnknownTag
+		}
+	}
+	return &types.ConditionCheck{
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":previous": &types.AttributeValueMemberS{Value: catalog.snapshot},
+		},
+	}, nil
 }
 
 type fileLibrary struct {
@@ -484,6 +520,6 @@ func newUploadLibrary(owner bool) *http.ServeMux {
 		Credentials: aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider("test", "test", "")),
 	})
 	uploads := photostore.NewS3Store(client, "test-photos")
-	photos.Register(mux, nil, uploads, func(*http.Request) bool { return owner })
+	photos.Register(mux, nil, uploads, nil, func(*http.Request) bool { return owner })
 	return mux
 }

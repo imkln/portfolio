@@ -3,6 +3,7 @@ import type { MouseEvent } from 'react';
 import type { BoardItem, BoardItemChange, BoardLayout } from '../collections/CollectionTypes';
 import type { Photo } from '../photos/Photo';
 import useCanvasGestures from './useCanvasGestures';
+import ActionIcon from '../shared/action-bar/ActionIcon';
 import ActionBar from '../shared/action-bar/ActionBar';
 import CanvasItem from './items/CanvasItem';
 import PhotoPicker from '../photos/picker/PhotoPicker';
@@ -136,14 +137,16 @@ export default function Canvas<Item extends BoardItem>({
         {canEdit && !compact && (
           <ActionBar>
             {!editing && (
-              <button type="button" onClick={() => setDraft(saved)}>
-                {editLabel}
+              <button type="button" aria-label={editLabel} title={editLabel} onClick={() => setDraft(saved)}>
+                <ActionIcon name="edit" />
               </button>
             )}
             {editing && addActions.map((action, index) => (
               <button
                 key={action.idPrefix}
                 type="button"
+                aria-label={action.label}
+                title={action.label}
                 autoFocus={index === 0}
                 onClick={() => {
                   if ('choosePhoto' in action) {
@@ -155,12 +158,12 @@ export default function Canvas<Item extends BoardItem>({
                   }
                 }}
               >
-                <span aria-hidden="true">+ </span>{action.label}
+                <ActionIcon name={'choosePhoto' in action ? 'photo' : action.idPrefix === 'caption' ? 'caption' : 'add'} />
               </button>
             ))}
             {editing && (
-              <button type="button" onClick={save}>
-                {saving ? 'Saving…' : 'Save'}
+              <button type="button" aria-label={saving ? 'Saving…' : 'Save'} title="Save" onClick={save}>
+                <ActionIcon name="save" />
               </button>
             )}
           </ActionBar>

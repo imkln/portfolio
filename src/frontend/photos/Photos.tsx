@@ -1,17 +1,28 @@
 import { useRef, useState } from 'react';
+import Dialog from '../shared/dialog/Dialog';
+import ActionIcon from '../shared/action-bar/ActionIcon';
 import ActionBar from '../shared/action-bar/ActionBar';
 import PhotoGrid from './grid/PhotoGrid';
 import PhotoViewer from './viewer/PhotoViewer';
 import type { Photo } from './Photo';
 import usePhotoLibrary from './usePhotoLibrary';
+import TagFilter from './tags/TagFilter';
+import TagEditor from './tags/TagEditor';
+import TagManager from './tags/TagManager';
+import useTags from './tags/useTags';
 import './Photos.css';
 
 export default function Photos() {
-  const library = usePhotoLibrary();
+  const [filters, setFilters] = useState<string[]>([]);
+  const [revision, setRevision] = useState(0);
+  const [tagMode, setTagMode] = useState<'edit' | 'manage'>();
+  const { tags, setTags, tagError } = useTags();
+  const library = usePhotoLibrary(filters, revision);
   const { photos, loadMore, upload, uploading, uploadError, remove } = library;
   const [viewing, setViewing] = useState<{ photo: Photo } | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(false);
   const anchor = useRef<string | null>(null);
@@ -67,6 +78,7 @@ export default function Photos() {
   }
 
   async function deletePhotos() {
+    setConfirmingDelete(false);
     setDeleting(true);
     setDeleteError(false);
 
@@ -84,10 +96,15 @@ export default function Photos() {
         {!selecting && (
           <button
             type="button"
-            disabled={uploading}
+            aria-label="Upload photos" title="Upload photos" disabled={uploading}
             onClick={() => input.current?.click()}
           >
-            <span aria-hidden="true">+ </span>Upload photos
+            <ActionIcon name="upload" />
+          </button>
+        )}
+        {!selecting && !tagError && (
+          <button type="button" aria-label="Tags" title="Tags" onClick={() => setTagMode('manage')}>
+            <ActionIcon name="tag" />
           </button>
         )}
         {selecting && (
@@ -95,19 +112,26 @@ export default function Photos() {
             <p className="photo-selection-count" role="status">
               {selected.size} selected
             </p>
+            {!tagError && (
+              <button type="button" aria-label="Edit tags" title="Edit tags" disabled={deleting || selected.size === 0 || selected.size > 99}
+                onClick={() => setTagMode('edit')}><ActionIcon name="tag" /></button>
+            )}
             <button
-              className="photo-delete"
+              aria-label="Delete" title="Delete photos"
               type="button"
               disabled={deleting || selected.size === 0}
-              onClick={deletePhotos}
+              onClick={() => setConfirmingDelete(true)}
             >
-              Delete
+              <ActionIcon name="trash" />
             </button>
           </>
         )}
         <button
           key="selection-mode"
           className={selecting ? 'photo-selection-done' : undefined}
+          aria-label={selecting ? 'Done' : 'Select'}
+          title={selecting ? 'Done' : 'Select'}
+          aria-pressed={selecting}
           ref={modeButton}
           type="button"
           disabled={deleting || (!selecting && photos.length === 0)}
@@ -119,9 +143,19 @@ export default function Photos() {
             setSelecting(!selecting);
           }}
         >
-          {selecting ? 'Done' : 'Select'}
+          <ActionIcon name="select" />
         </button>
       </ActionBar>
+
+      {confirmingDelete && (
+        <Dialog className="tag-panel tag-dialog" aria-labelledby="delete-photos-title" onDismiss={() => setConfirmingDelete(false)}>
+          <h2 id="delete-photos-title">{selected.size === 1 ? 'Delete photo?' : `Delete ${selected.size} photos?`}</h2>
+          <div className="tag-actions">
+            <button type="button" autoFocus onClick={() => setConfirmingDelete(false)}>Cancel</button>
+            <button type="button" className="tag-danger" onClick={deletePhotos}>Delete</button>
+          </div>
+        </Dialog>
+      )}
 
       <input
         ref={input}
@@ -139,6 +173,10 @@ export default function Photos() {
       {uploadError && <p role="alert">{uploadError}</p>}
       {deleteError && <p role="alert">Some photos could not be deleted.</p>}
 
+      {tagError && <p role="alert">Could not load tags.</p>}
+      {!tagError && <TagFilter tags={tags} selected={filters} disabled={selecting}
+        onChange={setFilters} />}
+
       <PhotoGrid
         library={library}
         selected={selecting ? selected : null}
@@ -148,6 +186,27 @@ export default function Photos() {
           else setViewing({ photo });
         }}
       />
+
+      {tagMode === 'manage' && (
+        <TagManager tags={tags}
+          onCreated={(tag) => setTags((current) => [...current, tag])}
+          onDeleted={(id) => {
+            setTags((current) => current.filter((tag) => tag.id !== id));
+            setFilters((current) => current.includes(id) ? current.filter((tag) => tag !== id) : current);
+            setRevision((current) => current + 1);
+          }}
+          onClose={() => setTagMode(undefined)} />
+      )}
+      {tagMode === 'edit' && (
+        <TagEditor tags={tags} photos={photos.filter((photo) => selected.has(photo.id))}
+          onCreated={(tag) => setTags((current) => [...current, tag])}
+          onApplied={() => {
+            clearSelection();
+            setSelecting(false);
+            setRevision((current) => current + 1);
+          }}
+          onClose={() => setTagMode(undefined)} />
+      )}
 
       {viewing && (
         <PhotoViewer

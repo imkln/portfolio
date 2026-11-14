@@ -41,8 +41,8 @@ export async function mockApi(
   });
 }
 
-export async function mockPhotos(page: Page) {
-  const api = createFakePhotosApi();
+export async function mockPhotos(page: Page, ...fixtures: Parameters<typeof createFakePhotosApi>) {
+  const api = createFakePhotosApi(...fixtures);
   await page.route((url) => isPhotoRequest(url.pathname), async (route) => {
     const request = route.request();
     const body = request.postDataBuffer();

@@ -11,7 +11,7 @@ resource "aws_iam_role_policy" "api" {
     Statement = [
       {
         Effect   = "Allow"
-        Action   = ["dynamodb:GetItem", "dynamodb:PutItem"]
+        Action   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:ConditionCheckItem"]
         Resource = aws_dynamodb_table.collections.arn
       },
       {

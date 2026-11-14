@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import Dialog from '../../shared/dialog/Dialog';
 import './PhotoViewer.css';
 
 type Props = {
@@ -9,21 +9,8 @@ type Props = {
 };
 
 export default function PhotoViewer({ name, original, onClose, onNavigate }: Props) {
-  const dialog = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    dialog.current?.showModal();
-  }, []);
-
   return (
-    <dialog
-      ref={dialog}
-      className="photo-viewer"
-      aria-label="Photo viewer"
-      onClose={onClose}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) event.currentTarget.close();
-      }}
+    <Dialog className="photo-viewer" aria-label="Photo viewer" fullscreen onDismiss={onClose}
       onKeyDown={(event) => {
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
 
@@ -34,11 +21,11 @@ export default function PhotoViewer({ name, original, onClose, onNavigate }: Pro
       <button
         type="button"
         aria-label="Close"
-        onClick={() => dialog.current?.close()}
+        onClick={onClose}
       >
         ×
       </button>
       <img src={original} alt={name} />
-    </dialog>
+    </Dialog>
   );
 }

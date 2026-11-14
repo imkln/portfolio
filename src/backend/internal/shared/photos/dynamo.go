@@ -22,6 +22,7 @@ const (
 var ErrInvalidPageToken = errors.New("invalid page token")
 
 type dynamoClient interface {
+	TransactWriteItems(context.Context, *dynamodb.TransactWriteItemsInput, ...func(*dynamodb.Options)) (*dynamodb.TransactWriteItemsOutput, error)
 	Query(context.Context, *dynamodb.QueryInput, ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
 	GetItem(context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
 	UpdateItem(context.Context, *dynamodb.UpdateItemInput, ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
@@ -80,7 +81,7 @@ func (store *dynamoStore) ListReady(ctx context.Context, pageToken string, limit
 			return nil, "", errors.New("stored photo has an invalid upload time")
 		}
 
-		items = append(items, Photo{ID: id.Value, Name: name.Value, UploadedAt: uploadedAt})
+		items = append(items, Photo{ID: id.Value, Name: name.Value, UploadedAt: uploadedAt, TagIDs: readTagIDs(item)})
 	}
 
 	var next string
@@ -151,7 +152,7 @@ func (store *dynamoStore) MarkDeleted(ctx context.Context, id string) (bool, err
 		TableName:           aws.String(store.table),
 		Key:                 photoKey(id),
 		ConditionExpression: aws.String("#state IN (:ready, :deleting, :deleted)"),
-		UpdateExpression:    aws.String("SET #state = :deleted REMOVE #name, uploadedAt, uploadKey"),
+		UpdateExpression:    aws.String("SET #state = :deleted REMOVE #name, uploadedAt, uploadKey, tagIds"),
 		ExpressionAttributeNames: map[string]string{
 			"#state": "state",
 			"#name":  "name",

@@ -1,7 +1,11 @@
-import { useEffect, useId, useRef } from 'react';
+import { useId, useState } from 'react';
+import Dialog from '../../shared/dialog/Dialog';
 import type { Photo } from '../Photo';
 import usePhotoLibrary from '../usePhotoLibrary';
 import PhotoGrid from '../grid/PhotoGrid';
+import ActionIcon from '../../shared/action-bar/ActionIcon';
+import TagFilter from '../tags/TagFilter';
+import useTags from '../tags/useTags';
 import './PhotoPicker.css';
 
 type Props = {
@@ -11,38 +15,32 @@ type Props = {
 };
 
 export default function PhotoPicker({ title, onChoose, onClose }: Props) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
-  const library = usePhotoLibrary();
-
-  useEffect(() => {
-    dialog.current?.showModal();
-  }, []);
+  const [filters, setFilters] = useState<string[]>([]);
+  const { tags, tagError } = useTags();
+  const library = usePhotoLibrary(filters);
 
   return (
-    <dialog
-      ref={dialog}
-      className="photo-picker"
-      aria-labelledby={titleId}
-      onClose={onClose}
-    >
+    <Dialog className="photo-picker" aria-labelledby={titleId} onDismiss={onClose}>
       <header className="photo-picker-header">
         <h2 id={titleId}>{title}</h2>
-        <button type="button" onClick={() => dialog.current?.close()}>
-          Cancel
+        <button type="button" className="photo-picker-close" aria-label="Close photo picker" onClick={onClose}>
+          <ActionIcon name="close" />
         </button>
       </header>
 
+      {tagError && <p role="alert">Could not load tags.</p>}
+      {!tagError && <TagFilter tags={tags} selected={filters} onChange={setFilters} />}
       <div className="photo-picker-content">
         <PhotoGrid
           library={library}
           selected={null}
           onActivate={(photo) => {
-            dialog.current?.close();
             onChoose(photo);
+            onClose();
           }}
         />
       </div>
-    </dialog>
+    </Dialog>
   );
 }

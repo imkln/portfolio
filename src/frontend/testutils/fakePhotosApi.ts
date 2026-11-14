@@ -1,18 +1,20 @@
+import type { Tag } from '../photos/tagsApi.ts';
+import type { Photo } from '../photos/Photo.ts';
 import { samplePhotos } from './samplePhotos.ts';
 
 const libraryPath = '/api/photos';
 const uploadPath = '/test-photo-uploads/';
 
-type Photo = (typeof samplePhotos)[number];
 type Upload = { photo: Photo; file?: Blob };
 
 export function isPhotoRequest(path: string) {
-  return path === libraryPath || path.startsWith(libraryPath + '/') ||
+  return path === '/api/tags' || path.startsWith('/api/tags/') || path === libraryPath || path.startsWith(libraryPath + '/') ||
     path.startsWith(uploadPath);
 }
 
-export function createFakePhotosApi(initialPhotos = samplePhotos) {
+export function createFakePhotosApi(initialPhotos: Photo[] = samplePhotos, initialTags: Tag[] = []) {
   const photos = new Map(initialPhotos.map((photo) => [photo.id, photo]));
+  const tags = new Map(initialTags.map((tag) => [tag.id, tag]));
   const uploads = new Map<string, Upload>();
   const received: string[] = [];
   let nextId = 1;
@@ -21,7 +23,42 @@ export function createFakePhotosApi(initialPhotos = samplePhotos) {
     const url = new URL(request.url);
     const { pathname } = url;
 
+    if (pathname === '/api/tags') {
+      if (request.method === 'GET') return Response.json([...tags.values()]);
+
+      const { name, parentId } = await request.json();
+      const tag = { id: `tag-${nextId++}`, name, parentId };
+      tags.set(tag.id, tag);
+      return Response.json(tag, { status: 201 });
+    }
+
+    if (pathname.startsWith('/api/tags/') && request.method === 'DELETE') {
+      const id = pathname.slice('/api/tags/'.length);
+      const tag = tags.get(id);
+      if (!tag) return new Response(null, { status: 404 });
+      if ([...tags.values()].some((item) => item.parentId === id)) {
+        return Response.json({ error: `${tag.name} can’t be deleted because it has subtags.` }, { status: 409 });
+      }
+      tags.delete(id);
+      return new Response(null, { status: 204 });
+    }
+
     if (pathname === libraryPath) {
+      if (request.method === 'PATCH') {
+        const { photoIds, addTagIds, removeTagIds }: { photoIds: string[]; addTagIds: string[]; removeTagIds: string[] } = await request.json();
+        if (photoIds.some((id) => !photos.has(id)) || addTagIds.some((id) => !tags.has(id))) {
+          return new Response(null, { status: 404 });
+        }
+        for (const id of photoIds) {
+          const photo = photos.get(id)!;
+          const tagIds = new Set(photo.tagIds);
+          for (const tag of addTagIds) tagIds.add(tag);
+          for (const tag of removeTagIds) tagIds.delete(tag);
+          photos.set(id, { ...photo, tagIds: [...tagIds] });
+        }
+        return new Response(null, { status: 204 });
+      }
+
       if (request.method === 'POST') {
         const { name } = await request.json();
         const id = `upload-${nextId++}`;
@@ -35,14 +72,22 @@ export function createFakePhotosApi(initialPhotos = samplePhotos) {
         );
       }
 
-      const all = Array.from(photos.values()).sort(
+      const filters = url.searchParams.getAll('tagId');
+      const all = [...photos.values()].filter((photo) => filters.every((filter) => photo.tagIds?.some((id) => {
+        for (let tag = tags.get(id); tag; tag = tag.parentId ? tags.get(tag.parentId) : undefined) {
+          if (tag.id === filter) return true;
+        }
+        return false;
+      }))).sort(
         (a, b) => Date.parse(b.uploadedAt) - Date.parse(a.uploadedAt),
       );
       const start = Number(url.searchParams.get('pageToken') ?? 0);
       const end = start + 24;
 
       return Response.json({
-        photos: all.slice(start, end).map(details),
+        photos: all.slice(start, end).map((photo) => details({
+          ...photo, tagIds: photo.tagIds?.filter((id) => tags.has(id)),
+        })),
         nextPageToken: end < all.length ? String(end) : undefined,
       });
     }
@@ -90,6 +135,6 @@ export function createFakePhotosApi(initialPhotos = samplePhotos) {
   return { handle, received };
 }
 
-function details({ id, name, uploadedAt }: Photo) {
-  return { id, name, uploadedAt };
+function details({ id, name, uploadedAt, tagIds }: Photo) {
+  return { id, name, uploadedAt, tagIds };
 }

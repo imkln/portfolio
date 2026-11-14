@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { samplePhotos } from '../testutils/samplePhotos';
 import { mockApi, mockPhotos } from '../testutils/fakeApi';
 
 function photo(page: Page, name: string) {
@@ -65,6 +66,7 @@ test('should ask for a JPEG when the selected file is unsupported', async ({ pag
 });
 
 test('should show when the photo library is empty', async ({ page }) => {
+  await mockPhotos(page);
   await page.route('**/api/photos', (route) => route.fulfill({ json: { photos: [] } }));
   await mockApi(page, { owner: true });
 
@@ -74,6 +76,7 @@ test('should show when the photo library is empty', async ({ page }) => {
 });
 
 test('should show when photos fail to load', async ({ page }) => {
+  await mockPhotos(page);
   await page.route('**/api/photos', (route) => route.fulfill({ status: 500 }));
   await mockApi(page, { owner: true });
 
@@ -201,6 +204,7 @@ test('can retry a photo deletion after a partial failure', async ({ page }) => {
 
   const deleteButton = page.getByRole('button', { name: 'Delete', exact: true });
   await deleteButton.click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
 
   await expect(page.getByRole('alert')).toHaveText('Some photos could not be deleted.');
   await expect(failed).toHaveAttribute('aria-pressed', 'true');
@@ -208,6 +212,7 @@ test('can retry a photo deletion after a partial failure', async ({ page }) => {
 
   await page.unroute('**/api/photos/sample-1');
   await deleteButton.click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
 
   await expect(failed).toHaveCount(0);
   await expect(page.getByRole('alert')).toHaveCount(0);
@@ -223,4 +228,108 @@ test('can leave selection mode with Done', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Upload photos' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Select', exact: true })).toBeVisible();
   await expect(photo(page, 'Photo 1')).not.toHaveAttribute('aria-pressed');
+});
+
+const france = { id: 'france', name: 'France' };
+
+async function openTagLibrary(page: Page, tagIds: string[][] = [[], []]) {
+  await mockApi(page, { owner: true });
+  await mockPhotos(page, tagIds.map((ids, index) => ({ ...samplePhotos[index], tagIds: ids })), [france]);
+  await page.goto('/photos');
+}
+
+test('can edit tags on selected photos', async ({ page }) => {
+  await openTagLibrary(page, [['france'], ['france'], []]);
+  await photo(page, 'Filter by tags').click();
+  await photo(page, 'France').click();
+  await expect(photo(page, 'Photo 3')).toHaveCount(0);
+  await photo(page, 'Filter by tags, 1 active').click();
+  await photo(page, 'Select').click();
+  await photo(page, 'Photo 1').click();
+  await photo(page, 'Edit tags').click();
+  await photo(page, 'France').click();
+
+  await photo(page, 'Apply changes').click();
+
+  await expect(photo(page, 'Select')).toBeVisible();
+  await expect(photo(page, 'Photo 2')).toBeVisible();
+  await expect(photo(page, 'Photo 1')).toHaveCount(0);
+});
+
+test('can finish uploading after changing a tag filter', async ({ page }) => {
+  await mockApi(page, { owner: true });
+  const france = { id: 'france', name: 'France' };
+  const api = await mockPhotos(page, [{ ...samplePhotos[0], tagIds: [france.id] }, samplePhotos[1]], [france]);
+  let releaseUpload!: () => void;
+  const uploadReady = new Promise<void>((resolve) => { releaseUpload = resolve; });
+  await page.route('**/test-photo-uploads/*', async (route) => {
+    await uploadReady;
+    await route.fallback();
+  });
+  await page.goto('/photos');
+  const pending = page.waitForRequest('**/test-photo-uploads/*');
+
+  try {
+    await uploadPhotos(page, 'Trail.jpg', 'Shore.jpg');
+    await pending;
+    await photo(page, 'Filter by tags').click();
+    await photo(page, 'France').click();
+    await expect(photo(page, 'Photo 2')).toHaveCount(0);
+  } finally {
+    releaseUpload();
+  }
+
+  await expect.poll(() => api.received).toEqual(['Trail.jpg', 'Shore.jpg']);
+  await expect(photo(page, 'Upload photos')).toBeEnabled();
+});
+
+test('can return focus to the new-tag trigger with Escape', async ({ page }) => {
+  await openTagLibrary(page);
+  await photo(page, 'Tags').click();
+  await photo(page, 'New tag').click();
+  const form = page.getByRole('dialog', { name: 'New tag' });
+  await expect(form.getByRole('textbox', { name: 'Name' })).toBeFocused();
+
+  await page.keyboard.press('Escape');
+
+  await expect(form).toHaveCount(0);
+  await expect(photo(page, 'New tag')).toBeFocused();
+});
+
+test('can create a tag', async ({ page }) => {
+  await openTagLibrary(page);
+  await photo(page, 'Tags').click();
+  await photo(page, 'New tag').click();
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Nature');
+  await photo(page, 'Create').click();
+  await page.getByRole('dialog', { name: 'Tags', exact: true }).getByRole('button', { name: 'Done' }).click();
+
+  await photo(page, 'Filter by tags').click();
+  await expect(photo(page, 'Nature')).toBeVisible();
+});
+
+test('can delete a tag', async ({ page }) => {
+  await openTagLibrary(page, [['france'], []]);
+  await photo(page, 'Filter by tags').click();
+  await photo(page, 'France').click();
+  await photo(page, 'Tags').click();
+  await photo(page, 'Delete France').click();
+  await photo(page, 'Delete tag').click();
+
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Delete France', exact: true })).toHaveCount(0);
+  await photo(page, 'Done').click();
+  await expect(photo(page, 'Clear all')).toHaveCount(0);
+  await expect(photo(page, 'Photo 2')).toBeVisible();
+});
+
+test('should show when tags fail to load', async ({ page }) => {
+  await mockApi(page, { owner: true });
+  await mockPhotos(page, samplePhotos.slice(0, 1));
+  await page.route('**/api/tags', (route) => route.fulfill({ status: 500 }));
+
+  await page.goto('/photos');
+
+  await expect(page.getByRole('alert')).toHaveText('Could not load tags.');
+  await photo(page, 'Photo 1').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
 });

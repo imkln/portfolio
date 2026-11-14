@@ -14,7 +14,15 @@ export default defineConfig(({ mode }) => ({
       configureServer(server) {
         if (mode !== 'photos-preview' && mode !== 'collection-canvas-preview') return;
 
-        const photos = createFakePhotosApi(previewPhotos);
+        const photos = createFakePhotosApi(previewPhotos.map((photo, index) => ({
+          ...photo,
+          tagIds: index % 3 === 0 ? ['paris', 'architecture'] : index % 3 === 1 ? ['nature'] : [],
+        })), [
+          { id: 'france', name: 'France' },
+          { id: 'paris', name: 'Paris', parentId: 'france' },
+          { id: 'architecture', name: 'Architecture' },
+          { id: 'nature', name: 'Nature' },
+        ]);
         const collections = mode === 'collection-canvas-preview' ? previewCollections : [];
         const handleCollections = createFakeCollectionsApi(collections, previewItemsByCollection);
         server.middlewares.use(async (request, response, next) => {

@@ -25,7 +25,7 @@ export default function PhotoGrid({ library, selected, onActivate }: Props) {
   return (
     <>
       {loadError && <p role="alert">Could not load photos.</p>}
-      {(!loadError || photos.length > 0) && (
+      {(photos.length > 0 || (!loadError && !hasMore)) && (
         <PhotoTiles photos={photos} selected={selected} onActivate={onActivate} />
       )}
       {hasMore && <div ref={nextPage} className="photo-page-end" />}

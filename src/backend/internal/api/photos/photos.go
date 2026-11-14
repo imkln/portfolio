@@ -11,6 +11,9 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+
+	"github.com/imkln/portfolio/src/backend/internal/api/tags"
 	photostore "github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
 
@@ -21,9 +24,15 @@ const (
 
 type Store interface {
 	ListReady(ctx context.Context, pageToken string, limit int32) ([]photostore.Photo, string, error)
+	EditTags(ctx context.Context, photoIDs, add, remove []string, catalog *types.ConditionCheck) error
 	IsReady(ctx context.Context, id string) (bool, error)
 	CanDelete(ctx context.Context, id string) (bool, error)
 	MarkDeleted(ctx context.Context, id string) (bool, error)
+}
+
+type TagCatalog interface {
+	List(context.Context) ([]tags.Tag, error)
+	CheckAssignment(context.Context, []string) (*types.ConditionCheck, error)
 }
 
 type FileStore interface {
@@ -46,14 +55,16 @@ type page struct {
 
 type handler struct {
 	store   Store
+	catalog TagCatalog
 	files   FileStore
 	isOwner func(*http.Request) bool
 }
 
-func Register(mux *http.ServeMux, store Store, files FileStore, isOwner func(*http.Request) bool) {
-	app := handler{store: store, files: files, isOwner: isOwner}
+func Register(mux *http.ServeMux, store Store, files FileStore, catalog TagCatalog, isOwner func(*http.Request) bool) {
+	app := handler{store: store, catalog: catalog, files: files, isOwner: isOwner}
 	mux.HandleFunc("GET /api/photos", app.list)
 	mux.HandleFunc("POST /api/photos", app.create)
+	mux.HandleFunc("PATCH /api/photos", app.editTags)
 	mux.HandleFunc("GET /api/photos/{id}", app.get(files.OriginalURL))
 	mux.HandleFunc("GET /api/photos/{id}/thumbnail", app.get(files.ThumbnailURL))
 	mux.HandleFunc("DELETE /api/photos/{id}", app.delete)
@@ -80,7 +91,13 @@ func (app *handler) list(w http.ResponseWriter, r *http.Request) {
 		token = tokens[0]
 	}
 
-	items, next, err := app.store.ListReady(r.Context(), token, pageSize)
+	filters := params["tagId"]
+	if !uniqueIDs(filters) {
+		writeError(w, http.StatusBadRequest)
+		return
+	}
+
+	items, next, err := app.listPhotos(r.Context(), token, filters)
 	if errors.Is(err, photostore.ErrInvalidPageToken) {
 		writeError(w, http.StatusBadRequest)
 		return
