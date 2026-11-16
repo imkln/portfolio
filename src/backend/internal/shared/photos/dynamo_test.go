@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-func TestSaveReadyWritesInitialTags(t *testing.T) {
+func TestSavingPhotoIncludesTagIDs(t *testing.T) {
 	client := &readyWriteClient{}
 	store := NewDynamoStore(client, "photos")
 	photo := Photo{ID: "lake", Name: "Lake.jpg", UploadedAt: time.Now(), TagIDs: []string{"water"}}
@@ -22,7 +22,7 @@ func TestSaveReadyWritesInitialTags(t *testing.T) {
 	}
 	tags, ok := client.update.ExpressionAttributeValues[":tags"].(*types.AttributeValueMemberSS)
 	if !ok || !slices.Equal(tags.Value, photo.TagIDs) {
-		t.Fatalf("expected initial tag IDs as a string set, got %v", tags)
+		t.Fatalf("expected tag IDs as a string set, got %v", tags)
 	}
 }
 

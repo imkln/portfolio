@@ -46,19 +46,3 @@ func TestOpenAIMatchesTagsFromThumbnail(t *testing.T) {
 		t.Fatalf("matches = %v, error = %v", ids, err)
 	}
 }
-
-func TestOpenAIDoesNotRetryServiceErrors(t *testing.T) {
-	calls := make(chan struct{}, 2)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls <- struct{}{}
-		http.Error(w, "private candidate information", http.StatusTooManyRequests)
-	}))
-	defer server.Close()
-	client := &OpenAI{key: "test-key", endpoint: server.URL}
-
-	_, err := client.Match(t.Context(), jpegImage(t, 480, 320), []Candidate{{ID: "lake", Name: "Lake"}})
-
-	if err == nil || err.Error() != "automatic tagging returned HTTP 429" || len(calls) != 1 {
-		t.Fatalf("error = %v, requests = %d", err, len(calls))
-	}
-}

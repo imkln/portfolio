@@ -101,7 +101,7 @@ func TestThumbnailKeepsPhotoOrientation(t *testing.T) {
 	}
 }
 
-func TestWorkerSavesAutomaticMatchesWithReadyPhoto(t *testing.T) {
+func TestWorkerSavesEachValidTagMatchOnce(t *testing.T) {
 	worker, library := newTestWorker(t, jpegImage(t, 600, 400))
 	library.catalog = []tags.Tag{{ID: "lake", Name: "Lake", AutoApply: true}}
 	library.match = func(candidates []Candidate) ([]string, error) {
@@ -113,8 +113,8 @@ func TestWorkerSavesAutomaticMatchesWithReadyPhoto(t *testing.T) {
 
 	processUpload(t, worker)
 
-	if !library.ready || !slices.Equal(library.initialTags, []string{"lake"}) {
-		t.Fatalf("ready = %t, initial tags = %v", library.ready, library.initialTags)
+	if !library.ready || !slices.Equal(library.savedTagIDs, []string{"lake"}) {
+		t.Fatalf("ready = %t, saved tag IDs = %v", library.ready, library.savedTagIDs)
 	}
 }
 
@@ -136,8 +136,8 @@ func TestWorkerSavesPhotoWithoutTagsWhenAnalysisFails(t *testing.T) {
 
 	processUpload(t, worker)
 
-	if !library.ready || len(library.initialTags) != 0 {
-		t.Fatalf("ready = %t, initial tags = %v", library.ready, library.initialTags)
+	if !library.ready || len(library.savedTagIDs) != 0 {
+		t.Fatalf("ready = %t, saved tag IDs = %v", library.ready, library.savedTagIDs)
 	}
 }
 
@@ -199,7 +199,7 @@ type workerLibrary struct {
 	catalog      []tags.Tag
 	match        func([]Candidate) ([]string, error)
 	matcherCalls int
-	initialTags  []string
+	savedTagIDs  []string
 }
 
 func (library *workerLibrary) PhotoState(_ context.Context, id string) (string, error) {
@@ -236,7 +236,7 @@ func (library *workerLibrary) SaveReady(_ context.Context, photo photos.Photo) e
 	}
 
 	library.ready = true
-	library.initialTags = photo.TagIDs
+	library.savedTagIDs = photo.TagIDs
 	library.published++
 	return nil
 }
