@@ -54,18 +54,20 @@ export default function TagCreator({ tags, initialName = '', assigning, onCreate
           <div className="tag-field">
             <span>Parent</span>
             <button ref={parentButton} className="tag-parent" type="button" aria-label={`Parent: ${path}`} aria-expanded={chooseParent}
-              onClick={() => setChooseParent(!chooseParent)}>{path} {!chooseParent && <span aria-hidden="true">⌄</span>}</button>
+              onClick={() => setChooseParent(!chooseParent)}>{path}<span className="tag-parent-chevron" aria-hidden="true" /></button>
+            {chooseParent && (
+              <div className="tag-parent-list">
+                <button type="button" onClick={() => pickParent()}>None{!parent && ' ✓'}</button>
+                <TagList rows={rows} state={(id) => id === parent ? 'all' : 'none'} onSelect={pickParent} />
+              </div>
+            )}
           </div>
-          {chooseParent && (
-            <div className="tag-parent-list">
-              <button type="button" onClick={() => pickParent()}>None{!parent && ' ✓'}</button>
-              <TagList rows={rows} state={(id) => id === parent ? 'all' : 'none'} onSelect={pickParent} />
-            </div>
-          )}
-          <label className="tag-auto-apply">
-            <input type="checkbox" checked={autoApply} onChange={(event) => setAutoApply(event.target.checked)} />
-            Apply automatically
-          </label>
+          <div className="tag-option">
+            <label className="tag-auto-apply">
+              <input type="checkbox" checked={autoApply} onChange={(event) => setAutoApply(event.target.checked)} />
+              Apply automatically
+            </label>
+          </div>
           {assigning && <p>The tag is saved now. Photo assignments are saved when you apply changes.</p>}
           {error && <p role="alert">{error}</p>}
           <div className="tag-actions">
