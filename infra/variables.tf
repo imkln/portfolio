@@ -35,3 +35,12 @@ variable "owner_email" {
     error_message = "Set the owner email."
   }
 }
+
+variable "openai_secret_arn" {
+  type = string
+
+  validation {
+    condition     = can(regex("^arn:[^:]+:secretsmanager:[^:]+:[0-9]{12}:secret:[A-Za-z0-9/_+=.@-]+$", var.openai_secret_arn))
+    error_message = "Set the ARN of the Secrets Manager secret containing the OpenAI API key."
+  }
+}

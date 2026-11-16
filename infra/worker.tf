@@ -65,8 +65,13 @@ resource "aws_iam_role_policy" "worker" {
       },
       {
         Effect   = "Allow"
-        Action   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
+        Action   = ["dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:ConditionCheckItem"]
         Resource = aws_dynamodb_table.photos.arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
+        Resource = var.openai_secret_arn
       },
       {
         Effect   = "Allow"
@@ -97,6 +102,7 @@ resource "aws_lambda_function" "worker" {
     variables = {
       PHOTO_UPLOAD_BUCKET = aws_s3_bucket.photos.bucket
       PHOTOS_TABLE        = aws_dynamodb_table.photos.name
+      OPENAI_SECRET_ARN   = var.openai_secret_arn
     }
   }
 
