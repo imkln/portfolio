@@ -144,15 +144,22 @@ func TestWorkerSkipsDuplicateEligibleNames(t *testing.T) {
 	}
 }
 
-func TestWorkerSkipsDeliveryThatLosesReservation(t *testing.T) {
+func TestWorkerCanRetryAfterAnalysisFails(t *testing.T) {
 	worker, library := newTestWorker(t, jpegImage(t, 600, 400))
 	library.catalog = []tags.Tag{{ID: "lake", Name: "Lake", AutoApply: true}}
-	library.reserved = true
+	serviceError := errors.New("tagging service unavailable")
+	library.match = func([]Candidate) ([]string, error) { return nil, serviceError }
+
+	err := worker.Process(t.Context(), workerKey, uploadedAt)
+	if !errors.Is(err, serviceError) {
+		t.Fatalf("error = %v, want %v", err, serviceError)
+	}
+	library.match = func([]Candidate) ([]string, error) { return []string{"lake"}, nil }
 
 	processUpload(t, worker)
 
-	if library.ready || library.matcherCalls != 0 {
-		t.Fatalf("ready = %t, analysis calls = %d", library.ready, library.matcherCalls)
+	if !library.ready || !slices.Equal(library.initialTags, []string{"lake"}) {
+		t.Fatalf("ready = %t, initial tags = %v", library.ready, library.initialTags)
 	}
 }
 
@@ -229,7 +236,6 @@ type workerLibrary struct {
 	saveError    error
 	catalog      []tags.Tag
 	match        func([]Candidate) ([]string, error)
-	reserved     bool
 	matcherCalls int
 	initialTags  []string
 	beforeSave   func()
@@ -266,15 +272,7 @@ func (library *workerLibrary) Match(_ context.Context, _ []byte, candidates []Ca
 	return library.match(candidates)
 }
 
-func (library *workerLibrary) ReserveAnalysis(context.Context, string) (bool, error) {
-	if library.reserved {
-		return false, nil
-	}
-	library.reserved = true
-	return true, nil
-}
-
-func (library *workerLibrary) SaveReady(ctx context.Context, photo photos.Photo, reserved bool, catalog *types.ConditionCheck) (bool, error) {
+func (library *workerLibrary) SaveReady(ctx context.Context, photo photos.Photo, catalog *types.ConditionCheck) (bool, error) {
 	if library.beforeSave != nil {
 		library.beforeSave()
 		library.beforeSave = nil
@@ -290,7 +288,7 @@ func (library *workerLibrary) SaveReady(ctx context.Context, photo photos.Photo,
 	if len(library.original) == 0 || len(library.thumbnail) == 0 {
 		return false, errors.New("the photo was marked ready before both files were saved")
 	}
-	if library.ready || library.deleted || reserved != library.reserved {
+	if library.ready || library.deleted {
 		return false, nil
 	}
 

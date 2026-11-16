@@ -24,8 +24,7 @@ const (
 
 type workerStore interface {
 	PhotoState(ctx context.Context, id string) (string, error)
-	ReserveAnalysis(ctx context.Context, id string) (bool, error)
-	SaveReady(ctx context.Context, photo photos.Photo, reserved bool, catalog *types.ConditionCheck) (bool, error)
+	SaveReady(ctx context.Context, photo photos.Photo, catalog *types.ConditionCheck) (bool, error)
 }
 
 type workerFiles interface {
@@ -80,21 +79,12 @@ func (worker *Worker) Process(ctx context.Context, key string, uploadedAt time.T
 	}
 	candidates := eligibleTags(catalog)
 
-	// File writes can be retried before claiming the one paid analysis attempt.
 	if err := worker.files.SavePhoto(ctx, id, original, thumbnail); err != nil {
 		return fmt.Errorf("save photo files: %w", err)
 	}
 
 	photo := photos.Photo{ID: id, Name: name, UploadedAt: uploadedAt.UTC()}
-	reserved := len(candidates) > 0
-	if reserved {
-		won, err := worker.store.ReserveAnalysis(ctx, id)
-		if err != nil {
-			return err
-		}
-		if !won {
-			return worker.cleanUpDeletedPhoto(ctx, id)
-		}
+	if len(candidates) > 0 {
 		matches, err := worker.matcher.Match(ctx, thumbnail, candidates)
 		if err != nil {
 			return err
@@ -106,7 +96,7 @@ func (worker *Worker) Process(ctx context.Context, key string, uploadedAt time.T
 		}
 	}
 
-	saved, err := worker.saveReady(ctx, photo, reserved)
+	saved, err := worker.saveReady(ctx, photo)
 	if err != nil || saved {
 		return err
 	}
@@ -154,11 +144,11 @@ func foldName(name string) string {
 	}, name)
 }
 
-func (worker *Worker) saveReady(ctx context.Context, photo photos.Photo, reserved bool) (bool, error) {
+func (worker *Worker) saveReady(ctx context.Context, photo photos.Photo) (bool, error) {
 	for len(photo.TagIDs) > 0 {
 		condition, err := worker.catalog.CheckAssignment(ctx, photo.TagIDs)
 		if err == nil {
-			saved, err := worker.store.SaveReady(ctx, photo, reserved, condition)
+			saved, err := worker.store.SaveReady(ctx, photo, condition)
 			if !errors.Is(err, photos.ErrCatalogChanged) {
 				return saved, err
 			}
@@ -176,7 +166,7 @@ func (worker *Worker) saveReady(ctx context.Context, photo photos.Photo, reserve
 		}
 		photo.TagIDs = slices.DeleteFunc(photo.TagIDs, func(id string) bool { return !known[id] })
 	}
-	return worker.store.SaveReady(ctx, photo, reserved, nil)
+	return worker.store.SaveReady(ctx, photo, nil)
 }
 
 func makeThumbnail(original []byte) ([]byte, error) {

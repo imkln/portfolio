@@ -169,26 +169,9 @@ func (store *dynamoStore) MarkDeleted(ctx context.Context, id string) (bool, err
 	return err == nil, err
 }
 
-func (store *dynamoStore) ReserveAnalysis(ctx context.Context, id string) (bool, error) {
-	_, err := store.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-		TableName:                aws.String(store.table),
-		Key:                      photoKey(id),
-		ConditionExpression:      aws.String("attribute_not_exists(#state) AND attribute_not_exists(analysisAttempted)"),
-		UpdateExpression:         aws.String("SET analysisAttempted = :attempted"),
-		ExpressionAttributeNames: map[string]string{"#state": "state"},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":attempted": &types.AttributeValueMemberBOOL{Value: true},
-		},
-	})
-	if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
-		return false, nil
-	}
-	return err == nil, err
-}
-
 var ErrCatalogChanged = errors.New("tag catalog changed before photo became ready")
 
-func (store *dynamoStore) SaveReady(ctx context.Context, photo Photo, reserved bool, catalog *types.ConditionCheck) (bool, error) {
+func (store *dynamoStore) SaveReady(ctx context.Context, photo Photo, catalog *types.ConditionCheck) (bool, error) {
 	uploadedAt := photo.UploadedAt.UTC()
 	update := &types.Update{
 		TableName:                aws.String(store.table),
@@ -202,9 +185,6 @@ func (store *dynamoStore) SaveReady(ctx context.Context, photo Photo, reserved b
 			":time":  &types.AttributeValueMemberS{Value: uploadedAt.Format(time.RFC3339Nano)},
 			":key":   &types.AttributeValueMemberS{Value: uploadedAt.Format(uploadTimeLayout) + "#" + photo.ID},
 		},
-	}
-	if reserved {
-		update.ConditionExpression = aws.String("attribute_not_exists(#state) AND attribute_exists(analysisAttempted)")
 	}
 	if len(photo.TagIDs) != 0 {
 		update.UpdateExpression = aws.String(*update.UpdateExpression + ", tagIds = :tags")
