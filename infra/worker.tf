@@ -65,7 +65,7 @@ resource "aws_iam_role_policy" "worker" {
       },
       {
         Effect   = "Allow"
-        Action   = ["dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:ConditionCheckItem"]
+        Action   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
         Resource = aws_dynamodb_table.photos.arn
       },
       {

@@ -3,15 +3,14 @@ package worker
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"image/jpeg"
+	"log/slog"
 	"slices"
 	"strings"
 	"time"
 	"unicode"
 
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/disintegration/imaging"
 	"github.com/imkln/portfolio/src/backend/internal/api/tags"
 	"github.com/imkln/portfolio/src/backend/internal/shared/photos"
@@ -24,7 +23,7 @@ const (
 
 type workerStore interface {
 	PhotoState(ctx context.Context, id string) (string, error)
-	SaveReady(ctx context.Context, photo photos.Photo, catalog *types.ConditionCheck) (bool, error)
+	SaveReady(ctx context.Context, photo photos.Photo) (bool, error)
 }
 
 type workerFiles interface {
@@ -35,7 +34,6 @@ type workerFiles interface {
 
 type tagCatalog interface {
 	List(context.Context) ([]tags.Tag, error)
-	CheckAssignment(context.Context, []string) (*types.ConditionCheck, error)
 }
 
 type tagMatcher interface {
@@ -87,16 +85,17 @@ func (worker *Worker) Process(ctx context.Context, key string, uploadedAt time.T
 	if len(candidates) > 0 {
 		matches, err := worker.matcher.Match(ctx, thumbnail, candidates)
 		if err != nil {
-			return err
-		}
-		for _, candidate := range candidates {
-			if slices.Contains(matches, candidate.ID) {
-				photo.TagIDs = append(photo.TagIDs, candidate.ID)
+			slog.WarnContext(ctx, "automatic photo tagging failed", "error", err)
+		} else {
+			for _, candidate := range candidates {
+				if slices.Contains(matches, candidate.ID) {
+					photo.TagIDs = append(photo.TagIDs, candidate.ID)
+				}
 			}
 		}
 	}
 
-	saved, err := worker.saveReady(ctx, photo)
+	saved, err := worker.store.SaveReady(ctx, photo)
 	if err != nil || saved {
 		return err
 	}
@@ -142,31 +141,6 @@ func foldName(name string) string {
 		}
 		return minimum
 	}, name)
-}
-
-func (worker *Worker) saveReady(ctx context.Context, photo photos.Photo) (bool, error) {
-	for len(photo.TagIDs) > 0 {
-		condition, err := worker.catalog.CheckAssignment(ctx, photo.TagIDs)
-		if err == nil {
-			saved, err := worker.store.SaveReady(ctx, photo, condition)
-			if !errors.Is(err, photos.ErrCatalogChanged) {
-				return saved, err
-			}
-		} else if !errors.Is(err, tags.ErrUnknownTag) {
-			return false, err
-		}
-
-		catalog, err := worker.catalog.List(ctx)
-		if err != nil {
-			return false, err
-		}
-		known := make(map[string]bool, len(catalog))
-		for _, tag := range catalog {
-			known[tag.ID] = true
-		}
-		photo.TagIDs = slices.DeleteFunc(photo.TagIDs, func(id string) bool { return !known[id] })
-	}
-	return worker.store.SaveReady(ctx, photo, nil)
 }
 
 func makeThumbnail(original []byte) ([]byte, error) {

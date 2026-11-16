@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/imkln/portfolio/src/backend/internal/api/tags"
 	"github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
@@ -144,38 +143,15 @@ func TestWorkerSkipsDuplicateEligibleNames(t *testing.T) {
 	}
 }
 
-func TestWorkerCanRetryAfterAnalysisFails(t *testing.T) {
+func TestWorkerSavesPhotoWithoutTagsWhenAnalysisFails(t *testing.T) {
 	worker, library := newTestWorker(t, jpegImage(t, 600, 400))
 	library.catalog = []tags.Tag{{ID: "lake", Name: "Lake", AutoApply: true}}
-	serviceError := errors.New("tagging service unavailable")
-	library.match = func([]Candidate) ([]string, error) { return nil, serviceError }
-
-	err := worker.Process(t.Context(), workerKey, uploadedAt)
-	if !errors.Is(err, serviceError) {
-		t.Fatalf("error = %v, want %v", err, serviceError)
-	}
-	library.match = func([]Candidate) ([]string, error) { return []string{"lake"}, nil }
+	library.match = func([]Candidate) ([]string, error) { return nil, errors.New("tagging service unavailable") }
 
 	processUpload(t, worker)
 
-	if !library.ready || !slices.Equal(library.initialTags, []string{"lake"}) {
+	if !library.ready || len(library.initialTags) != 0 {
 		t.Fatalf("ready = %t, initial tags = %v", library.ready, library.initialTags)
-	}
-}
-
-func TestWorkerDropsDeletedTagsWithoutAnalyzingAgain(t *testing.T) {
-	worker, library := newTestWorker(t, jpegImage(t, 600, 400))
-	library.catalog = []tags.Tag{
-		{ID: "lake", Name: "Lake", AutoApply: true},
-		{ID: "water", Name: "Water", AutoApply: true},
-	}
-	library.match = func([]Candidate) ([]string, error) { return []string{"lake", "water"}, nil }
-	library.beforeSave = func() { library.catalog = library.catalog[1:] }
-
-	processUpload(t, worker)
-
-	if !library.ready || library.matcherCalls != 1 || !slices.Equal(library.initialTags, []string{"water"}) {
-		t.Fatalf("ready = %t, analysis calls = %d, initial tags = %v", library.ready, library.matcherCalls, library.initialTags)
 	}
 }
 
@@ -238,7 +214,6 @@ type workerLibrary struct {
 	match        func([]Candidate) ([]string, error)
 	matcherCalls int
 	initialTags  []string
-	beforeSave   func()
 }
 
 func (library *workerLibrary) PhotoState(_ context.Context, id string) (string, error) {
@@ -258,30 +233,12 @@ func (library *workerLibrary) List(context.Context) ([]tags.Tag, error) {
 	return library.catalog, nil
 }
 
-func (library *workerLibrary) CheckAssignment(_ context.Context, ids []string) (*types.ConditionCheck, error) {
-	for _, id := range ids {
-		if !slices.ContainsFunc(library.catalog, func(tag tags.Tag) bool { return tag.ID == id }) {
-			return nil, tags.ErrUnknownTag
-		}
-	}
-	return &types.ConditionCheck{}, nil
-}
-
 func (library *workerLibrary) Match(_ context.Context, _ []byte, candidates []Candidate) ([]string, error) {
 	library.matcherCalls++
 	return library.match(candidates)
 }
 
-func (library *workerLibrary) SaveReady(ctx context.Context, photo photos.Photo, catalog *types.ConditionCheck) (bool, error) {
-	if library.beforeSave != nil {
-		library.beforeSave()
-		library.beforeSave = nil
-	}
-	if catalog != nil {
-		if _, err := library.CheckAssignment(ctx, photo.TagIDs); err != nil {
-			return false, photos.ErrCatalogChanged
-		}
-	}
+func (library *workerLibrary) SaveReady(_ context.Context, photo photos.Photo) (bool, error) {
 	if photo.ID != "lake" || photo.Name != "lake.jpg" || !photo.UploadedAt.Equal(uploadedAt) {
 		return false, errors.New("wrong photo details")
 	}
