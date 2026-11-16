@@ -5,9 +5,12 @@ import (
 	"context"
 	"fmt"
 	"image/jpeg"
+	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/disintegration/imaging"
+	"github.com/imkln/portfolio/src/backend/internal/api/tags"
 	"github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
 
@@ -18,22 +21,31 @@ const (
 
 type workerStore interface {
 	PhotoState(ctx context.Context, id string) (string, error)
-	SaveReady(ctx context.Context, photo photos.Photo) (bool, error)
+	SaveReady(ctx context.Context, photo photos.Photo) error
 }
 
 type workerFiles interface {
 	ReadUpload(ctx context.Context, key string) (string, []byte, error)
 	SavePhoto(ctx context.Context, id string, original, thumbnail []byte) error
-	DeletePhoto(ctx context.Context, id string) error
+}
+
+type tagCatalog interface {
+	List(context.Context) ([]tags.Tag, error)
+}
+
+type tagMatcher interface {
+	Match(context.Context, []byte, []Candidate) ([]string, error)
 }
 
 type Worker struct {
-	store workerStore
-	files workerFiles
+	store   workerStore
+	files   workerFiles
+	catalog tagCatalog
+	matcher tagMatcher
 }
 
-func New(store workerStore, files workerFiles) *Worker {
-	return &Worker{store: store, files: files}
+func New(store workerStore, files workerFiles, catalog tagCatalog, matcher tagMatcher) *Worker {
+	return &Worker{store: store, files: files, catalog: catalog, matcher: matcher}
 }
 
 func (worker *Worker) Process(ctx context.Context, key string, uploadedAt time.Time) error {
@@ -56,21 +68,41 @@ func (worker *Worker) Process(ctx context.Context, key string, uploadedAt time.T
 		return err
 	}
 
+	catalog, err := worker.catalog.List(ctx)
+	if err != nil {
+		return err
+	}
+	candidates := eligibleTags(catalog)
+
 	if err := worker.files.SavePhoto(ctx, id, original, thumbnail); err != nil {
 		return fmt.Errorf("save photo files: %w", err)
 	}
 
-	saved, err := worker.store.SaveReady(ctx, photos.Photo{ID: id, Name: name, UploadedAt: uploadedAt.UTC()})
-	if err != nil || saved {
-		return err
+	photo := photos.Photo{ID: id, Name: name, UploadedAt: uploadedAt.UTC()}
+	if len(candidates) > 0 {
+		matches, err := worker.matcher.Match(ctx, thumbnail, candidates)
+		if err != nil {
+			slog.WarnContext(ctx, "automatic photo tagging failed", "error", err)
+		} else {
+			for _, candidate := range candidates {
+				if slices.Contains(matches, candidate.ID) {
+					photo.TagIDs = append(photo.TagIDs, candidate.ID)
+				}
+			}
+		}
 	}
 
-	// A concurrent upload may have finished and been deleted while this one was saving.
-	state, err = worker.store.PhotoState(ctx, id)
-	if err == nil && (state == photos.DeletedState || state == photos.DeletingState) {
-		return worker.files.DeletePhoto(ctx, id)
+	return worker.store.SaveReady(ctx, photo)
+}
+
+func eligibleTags(catalog []tags.Tag) []Candidate {
+	var candidates []Candidate
+	for _, tag := range catalog {
+		if tag.AutoApply {
+			candidates = append(candidates, Candidate{ID: tag.ID, Name: tag.Name})
+		}
 	}
-	return err
+	return candidates
 }
 
 func makeThumbnail(original []byte) ([]byte, error) {

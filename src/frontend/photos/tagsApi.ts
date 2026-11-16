@@ -1,4 +1,4 @@
-export type Tag = { id: string; name: string; parentId?: string };
+export type Tag = { id: string; name: string; parentId?: string; autoApply?: boolean };
 
 export async function listTags(signal?: AbortSignal): Promise<Tag[]> {
   const response = await fetch('/api/tags', { signal });
@@ -6,11 +6,11 @@ export async function listTags(signal?: AbortSignal): Promise<Tag[]> {
   return response.json();
 }
 
-export async function createTag(name: string, parentId?: string): Promise<Tag> {
+export async function createTag(name: string, parentId?: string, autoApply?: boolean): Promise<Tag> {
   const response = await fetch('/api/tags', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, parentId }),
+    body: JSON.stringify({ name, parentId, autoApply }),
   });
   if (!response.ok) throw await tagError(response, 'Could not create tag.');
   return response.json();

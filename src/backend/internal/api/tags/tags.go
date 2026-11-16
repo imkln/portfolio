@@ -10,14 +10,15 @@ import (
 )
 
 type Tag struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	ParentID string `json:"parentId,omitempty"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	ParentID  string `json:"parentId,omitempty"`
+	AutoApply bool   `json:"autoApply,omitempty"`
 }
 
 type Store interface {
 	List(context.Context) ([]Tag, error)
-	Create(context.Context, string, string) (Tag, error)
+	Create(context.Context, string, string, bool) (Tag, error)
 	Delete(context.Context, string) error
 }
 
@@ -59,8 +60,9 @@ func (app handler) list(w http.ResponseWriter, r *http.Request) {
 
 func (app handler) create(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Name     string `json:"name"`
-		ParentID string `json:"parentId"`
+		Name      string `json:"name"`
+		ParentID  string `json:"parentId"`
+		AutoApply bool   `json:"autoApply"`
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
 	if err := decoder.Decode(&input); err != nil || decoder.Decode(new(any)) != io.EOF {
@@ -68,7 +70,7 @@ func (app handler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tag, err := app.store.Create(r.Context(), input.Name, input.ParentID)
+	tag, err := app.store.Create(r.Context(), input.Name, input.ParentID, input.AutoApply)
 	if err != nil {
 		writeError(w, r, err)
 		return

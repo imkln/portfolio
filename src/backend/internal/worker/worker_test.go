@@ -6,9 +6,11 @@ import (
 	"errors"
 	"image"
 	"image/jpeg"
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/imkln/portfolio/src/backend/internal/api/tags"
 	"github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
 
@@ -99,6 +101,46 @@ func TestThumbnailKeepsPhotoOrientation(t *testing.T) {
 	}
 }
 
+func TestWorkerSavesEachValidTagMatchOnce(t *testing.T) {
+	worker, library := newTestWorker(t, jpegImage(t, 600, 400))
+	library.catalog = []tags.Tag{{ID: "lake", Name: "Lake", AutoApply: true}}
+	library.match = func(candidates []Candidate) ([]string, error) {
+		if !slices.Equal(candidates, []Candidate{{ID: "lake", Name: "Lake"}}) {
+			t.Fatalf("candidates = %v", candidates)
+		}
+		return []string{"unknown", "lake", "lake"}, nil
+	}
+
+	processUpload(t, worker)
+
+	if !library.ready || !slices.Equal(library.savedTagIDs, []string{"lake"}) {
+		t.Fatalf("ready = %t, saved tag IDs = %v", library.ready, library.savedTagIDs)
+	}
+}
+
+func TestWorkerSkipsAnalysisForManualTags(t *testing.T) {
+	worker, library := newTestWorker(t, jpegImage(t, 600, 400))
+	library.catalog = []tags.Tag{{ID: "lake", Name: "Lake"}}
+
+	processUpload(t, worker)
+
+	if !library.ready || library.matcherCalls != 0 {
+		t.Fatalf("ready = %t, analysis calls = %d", library.ready, library.matcherCalls)
+	}
+}
+
+func TestWorkerSavesPhotoWithoutTagsWhenAnalysisFails(t *testing.T) {
+	worker, library := newTestWorker(t, jpegImage(t, 600, 400))
+	library.catalog = []tags.Tag{{ID: "lake", Name: "Lake", AutoApply: true}}
+	library.match = func([]Candidate) ([]string, error) { return nil, errors.New("tagging service unavailable") }
+
+	processUpload(t, worker)
+
+	if !library.ready || len(library.savedTagIDs) != 0 {
+		t.Fatalf("ready = %t, saved tag IDs = %v", library.ready, library.savedTagIDs)
+	}
+}
+
 func jpegImage(t *testing.T, width, height int) []byte {
 	t.Helper()
 
@@ -135,7 +177,7 @@ func newTestWorker(t *testing.T, original []byte) (*Worker, *workerLibrary) {
 	t.Helper()
 
 	library := &workerLibrary{upload: original}
-	return New(library, library), library
+	return New(library, library, library, library), library
 }
 
 func processUpload(t *testing.T, worker *Worker) {
@@ -147,13 +189,17 @@ func processUpload(t *testing.T, worker *Worker) {
 }
 
 type workerLibrary struct {
-	upload    []byte
-	original  []byte
-	thumbnail []byte
-	ready     bool
-	deleted   bool
-	published int
-	saveError error
+	upload       []byte
+	original     []byte
+	thumbnail    []byte
+	ready        bool
+	deleted      bool
+	published    int
+	saveError    error
+	catalog      []tags.Tag
+	match        func([]Candidate) ([]string, error)
+	matcherCalls int
+	savedTagIDs  []string
 }
 
 func (library *workerLibrary) PhotoState(_ context.Context, id string) (string, error) {
@@ -169,20 +215,30 @@ func (library *workerLibrary) PhotoState(_ context.Context, id string) (string, 
 	return "", nil
 }
 
-func (library *workerLibrary) SaveReady(_ context.Context, photo photos.Photo) (bool, error) {
+func (library *workerLibrary) List(context.Context) ([]tags.Tag, error) {
+	return library.catalog, nil
+}
+
+func (library *workerLibrary) Match(_ context.Context, _ []byte, candidates []Candidate) ([]string, error) {
+	library.matcherCalls++
+	return library.match(candidates)
+}
+
+func (library *workerLibrary) SaveReady(_ context.Context, photo photos.Photo) error {
 	if photo.ID != "lake" || photo.Name != "lake.jpg" || !photo.UploadedAt.Equal(uploadedAt) {
-		return false, errors.New("wrong photo details")
+		return errors.New("wrong photo details")
 	}
 	if len(library.original) == 0 || len(library.thumbnail) == 0 {
-		return false, errors.New("the photo was marked ready before both files were saved")
+		return errors.New("the photo was marked ready before both files were saved")
 	}
 	if library.ready || library.deleted {
-		return false, nil
+		return nil
 	}
 
 	library.ready = true
+	library.savedTagIDs = photo.TagIDs
 	library.published++
-	return true, nil
+	return nil
 }
 
 func (library *workerLibrary) ReadUpload(_ context.Context, key string) (string, []byte, error) {
@@ -201,13 +257,5 @@ func (library *workerLibrary) SavePhoto(_ context.Context, id string, original, 
 		return library.saveError
 	}
 	library.thumbnail = thumbnail
-	return nil
-}
-
-func (library *workerLibrary) DeletePhoto(_ context.Context, id string) error {
-	if id != "lake" {
-		return errors.New("unexpected photo ID")
-	}
-	library.original, library.thumbnail = nil, nil
 	return nil
 }

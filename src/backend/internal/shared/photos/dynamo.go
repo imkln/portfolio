@@ -169,28 +169,31 @@ func (store *dynamoStore) MarkDeleted(ctx context.Context, id string) (bool, err
 	return err == nil, err
 }
 
-func (store *dynamoStore) SaveReady(ctx context.Context, photo Photo) (bool, error) {
+func (store *dynamoStore) SaveReady(ctx context.Context, photo Photo) error {
 	uploadedAt := photo.UploadedAt.UTC()
-	_, err := store.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-		TableName:           aws.String(store.table),
-		Key:                 photoKey(photo.ID),
-		ConditionExpression: aws.String("attribute_not_exists(id)"),
-		UpdateExpression:    aws.String("SET #state = :ready, #name = :name, uploadedAt = :time, uploadKey = :key"),
-		ExpressionAttributeNames: map[string]string{
-			"#state": "state",
-			"#name":  "name",
-		},
+	update := &dynamodb.UpdateItemInput{
+		TableName:                aws.String(store.table),
+		Key:                      photoKey(photo.ID),
+		ConditionExpression:      aws.String("attribute_not_exists(id)"),
+		UpdateExpression:         aws.String("SET #state = :ready, #name = :name, uploadedAt = :time, uploadKey = :key"),
+		ExpressionAttributeNames: map[string]string{"#state": "state", "#name": "name"},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":ready": &types.AttributeValueMemberS{Value: readyState},
 			":name":  &types.AttributeValueMemberS{Value: photo.Name},
 			":time":  &types.AttributeValueMemberS{Value: uploadedAt.Format(time.RFC3339Nano)},
 			":key":   &types.AttributeValueMemberS{Value: uploadedAt.Format(uploadTimeLayout) + "#" + photo.ID},
 		},
-	})
-	if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
-		return false, nil
 	}
-	return err == nil, err
+	if len(photo.TagIDs) != 0 {
+		update.UpdateExpression = aws.String(*update.UpdateExpression + ", tagIds = :tags")
+		update.ExpressionAttributeValues[":tags"] = &types.AttributeValueMemberSS{Value: photo.TagIDs}
+	}
+
+	_, err := store.client.UpdateItem(ctx, update)
+	if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
+		return nil
+	}
+	return err
 }
 
 func photoKey(id string) map[string]types.AttributeValue {

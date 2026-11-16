@@ -19,6 +19,36 @@ func TestCanCreateTag(t *testing.T) {
 	}
 }
 
+func TestCanCreateAutomaticTag(t *testing.T) {
+	app := newApp(t, true)
+
+	response := testutils.Request(app, http.MethodPost, "/api/tags", `{"name":"Cat","autoApply":true}`)
+
+	testutils.CheckStatus(t, response, http.StatusCreated)
+	var tag tags.Tag
+	if err := json.Unmarshal(response.Body.Bytes(), &tag); err != nil {
+		t.Fatal(err)
+	}
+	if !tag.AutoApply {
+		t.Fatal("create response is missing automatic eligibility")
+	}
+
+	saved := listTags(t, app)
+	if len(saved) != 1 || saved[0] != tag {
+		t.Fatalf("saved tags = %+v, want [%+v]", saved, tag)
+	}
+}
+
+func TestTagDefaultsToManual(t *testing.T) {
+	app := newApp(t, true)
+
+	tag := createTag(t, app, "Paris", "")
+
+	if tag.AutoApply {
+		t.Fatal("expected a manual tag when autoApply is omitted")
+	}
+}
+
 func TestCanCreateNestedTag(t *testing.T) {
 	app := newApp(t, true)
 	parent := createTag(t, app, "France", "")
