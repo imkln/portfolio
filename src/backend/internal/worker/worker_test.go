@@ -129,20 +129,6 @@ func TestWorkerSkipsAnalysisForManualTags(t *testing.T) {
 	}
 }
 
-func TestWorkerSkipsDuplicateEligibleNames(t *testing.T) {
-	worker, library := newTestWorker(t, jpegImage(t, 600, 400))
-	library.catalog = []tags.Tag{
-		{ID: "lake", Name: "Lake", AutoApply: true},
-		{ID: "other-lake", ParentID: "somewhere", Name: "LAKE", AutoApply: true},
-	}
-
-	processUpload(t, worker)
-
-	if !library.ready || library.matcherCalls != 0 {
-		t.Fatalf("ready = %t, analysis calls = %d", library.ready, library.matcherCalls)
-	}
-}
-
 func TestWorkerSavesPhotoWithoutTagsWhenAnalysisFails(t *testing.T) {
 	worker, library := newTestWorker(t, jpegImage(t, 600, 400))
 	library.catalog = []tags.Tag{{ID: "lake", Name: "Lake", AutoApply: true}}
@@ -238,21 +224,21 @@ func (library *workerLibrary) Match(_ context.Context, _ []byte, candidates []Ca
 	return library.match(candidates)
 }
 
-func (library *workerLibrary) SaveReady(_ context.Context, photo photos.Photo) (bool, error) {
+func (library *workerLibrary) SaveReady(_ context.Context, photo photos.Photo) error {
 	if photo.ID != "lake" || photo.Name != "lake.jpg" || !photo.UploadedAt.Equal(uploadedAt) {
-		return false, errors.New("wrong photo details")
+		return errors.New("wrong photo details")
 	}
 	if len(library.original) == 0 || len(library.thumbnail) == 0 {
-		return false, errors.New("the photo was marked ready before both files were saved")
+		return errors.New("the photo was marked ready before both files were saved")
 	}
 	if library.ready || library.deleted {
-		return false, nil
+		return nil
 	}
 
 	library.ready = true
 	library.initialTags = photo.TagIDs
 	library.published++
-	return true, nil
+	return nil
 }
 
 func (library *workerLibrary) ReadUpload(_ context.Context, key string) (string, []byte, error) {
@@ -271,13 +257,5 @@ func (library *workerLibrary) SavePhoto(_ context.Context, id string, original, 
 		return library.saveError
 	}
 	library.thumbnail = thumbnail
-	return nil
-}
-
-func (library *workerLibrary) DeletePhoto(_ context.Context, id string) error {
-	if id != "lake" {
-		return errors.New("unexpected photo ID")
-	}
-	library.original, library.thumbnail = nil, nil
 	return nil
 }

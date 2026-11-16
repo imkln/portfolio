@@ -169,7 +169,7 @@ func (store *dynamoStore) MarkDeleted(ctx context.Context, id string) (bool, err
 	return err == nil, err
 }
 
-func (store *dynamoStore) SaveReady(ctx context.Context, photo Photo) (bool, error) {
+func (store *dynamoStore) SaveReady(ctx context.Context, photo Photo) error {
 	uploadedAt := photo.UploadedAt.UTC()
 	update := &dynamodb.UpdateItemInput{
 		TableName:                aws.String(store.table),
@@ -191,9 +191,9 @@ func (store *dynamoStore) SaveReady(ctx context.Context, photo Photo) (bool, err
 
 	_, err := store.client.UpdateItem(ctx, update)
 	if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
-		return false, nil
+		return nil
 	}
-	return err == nil, err
+	return err
 }
 
 func photoKey(id string) map[string]types.AttributeValue {

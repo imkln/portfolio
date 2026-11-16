@@ -7,9 +7,7 @@ import (
 	"image/jpeg"
 	"log/slog"
 	"slices"
-	"strings"
 	"time"
-	"unicode"
 
 	"github.com/disintegration/imaging"
 	"github.com/imkln/portfolio/src/backend/internal/api/tags"
@@ -23,13 +21,12 @@ const (
 
 type workerStore interface {
 	PhotoState(ctx context.Context, id string) (string, error)
-	SaveReady(ctx context.Context, photo photos.Photo) (bool, error)
+	SaveReady(ctx context.Context, photo photos.Photo) error
 }
 
 type workerFiles interface {
 	ReadUpload(ctx context.Context, key string) (string, []byte, error)
 	SavePhoto(ctx context.Context, id string, original, thumbnail []byte) error
-	DeletePhoto(ctx context.Context, id string) error
 }
 
 type tagCatalog interface {
@@ -95,52 +92,17 @@ func (worker *Worker) Process(ctx context.Context, key string, uploadedAt time.T
 		}
 	}
 
-	saved, err := worker.store.SaveReady(ctx, photo)
-	if err != nil || saved {
-		return err
-	}
-
-	return worker.cleanUpDeletedPhoto(ctx, id)
-}
-
-// A concurrent upload may have finished and been deleted while this one was saving.
-func (worker *Worker) cleanUpDeletedPhoto(ctx context.Context, id string) error {
-	state, err := worker.store.PhotoState(ctx, id)
-	if err == nil && (state == photos.DeletedState || state == photos.DeletingState) {
-		return worker.files.DeletePhoto(ctx, id)
-	}
-	return err
+	return worker.store.SaveReady(ctx, photo)
 }
 
 func eligibleTags(catalog []tags.Tag) []Candidate {
-	var eligible []tags.Tag
+	var candidates []Candidate
 	for _, tag := range catalog {
 		if tag.AutoApply {
-			eligible = append(eligible, tag)
-		}
-	}
-	counts := make(map[string]int, len(eligible))
-	for _, tag := range eligible {
-		counts[foldName(tag.Name)]++
-	}
-	var candidates []Candidate
-	for _, tag := range eligible {
-		if counts[foldName(tag.Name)] == 1 {
 			candidates = append(candidates, Candidate{ID: tag.ID, Name: tag.Name})
 		}
 	}
 	return candidates
-}
-
-func foldName(name string) string {
-	// Pick the same representative for every rune in a Unicode simple-fold cycle.
-	return strings.Map(func(r rune) rune {
-		minimum := r
-		for next := unicode.SimpleFold(r); next != r; next = unicode.SimpleFold(next) {
-			minimum = min(minimum, next)
-		}
-		return minimum
-	}, name)
 }
 
 func makeThumbnail(original []byte) ([]byte, error) {

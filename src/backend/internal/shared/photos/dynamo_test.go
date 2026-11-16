@@ -15,10 +15,10 @@ func TestSaveReadyWritesInitialTags(t *testing.T) {
 	store := NewDynamoStore(client, "photos")
 	photo := Photo{ID: "lake", Name: "Lake.jpg", UploadedAt: time.Now(), TagIDs: []string{"water"}}
 
-	saved, err := store.SaveReady(t.Context(), photo)
+	err := store.SaveReady(t.Context(), photo)
 
-	if err != nil || !saved {
-		t.Fatalf("saved = %t, error = %v", saved, err)
+	if err != nil {
+		t.Fatal(err)
 	}
 	tags, ok := client.update.ExpressionAttributeValues[":tags"].(*types.AttributeValueMemberSS)
 	if !ok || !slices.Equal(tags.Value, photo.TagIDs) {
