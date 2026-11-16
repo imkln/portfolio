@@ -75,7 +75,7 @@
   font: inherit;
 }
 
-.tag-panel input {
+.tag-panel input:not([type='checkbox']) {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
@@ -147,6 +147,21 @@
 
 .tag-field input {
   border-color: transparent;
+}
+
+.tag-auto-apply {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tag-auto-apply input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.tag-auto-apply input:focus-visible {
+  outline-offset: 2px;
 }
 
 .tag-parent {

@@ -308,6 +308,23 @@ test('can create a tag', async ({ page }) => {
   await expect(photo(page, 'Nature')).toBeVisible();
 });
 
+test('can opt a new tag into automatic tagging', async ({ page }) => {
+  await openTagLibrary(page);
+  await photo(page, 'Tags').click();
+  await photo(page, 'New tag').click();
+  const form = page.getByRole('dialog', { name: 'New tag' });
+  await form.getByRole('textbox', { name: 'Name' }).fill('Cat');
+  const checkbox = form.getByRole('checkbox', { name: 'Apply automatically' });
+
+  await checkbox.press('Space');
+  const createRequest = page.waitForRequest((request) =>
+    request.method() === 'POST' && new URL(request.url()).pathname === '/api/tags',
+  );
+  await form.getByRole('button', { name: 'Create' }).click();
+
+  expect((await createRequest).postDataJSON()).toMatchObject({ name: 'Cat', autoApply: true });
+});
+
 test('can delete a tag', async ({ page }) => {
   await openTagLibrary(page, [['france'], []]);
   await photo(page, 'Filter by tags').click();

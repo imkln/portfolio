@@ -101,7 +101,7 @@ it('can create a nested tag before applying assignments', async () => {
   prepareNestedTag();
 
   await waitFor(() => expect(onCreated).toHaveBeenCalledWith(nice));
-  expect(createTag).toHaveBeenCalledWith('Nice', france.id);
+  expect(createTag).toHaveBeenCalledWith('Nice', france.id, false);
   expect(editPhotoTags).not.toHaveBeenCalled();
 });
 

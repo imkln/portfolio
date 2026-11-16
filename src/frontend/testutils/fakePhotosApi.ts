@@ -26,8 +26,8 @@ export function createFakePhotosApi(initialPhotos: Photo[] = samplePhotos, initi
     if (pathname === '/api/tags') {
       if (request.method === 'GET') return Response.json([...tags.values()]);
 
-      const { name, parentId } = await request.json();
-      const tag = { id: `tag-${nextId++}`, name, parentId };
+      const { name, parentId, autoApply } = await request.json();
+      const tag = { id: `tag-${nextId++}`, name, parentId, autoApply };
       tags.set(tag.id, tag);
       return Response.json(tag, { status: 201 });
     }

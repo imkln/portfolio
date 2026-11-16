@@ -95,7 +95,7 @@ func (store *dynamoStore) load(ctx context.Context) ([]Tag, *string, error) {
 	return tags, &value.Value, err
 }
 
-func (store *dynamoStore) Create(ctx context.Context, name, parentID string) (Tag, error) {
+func (store *dynamoStore) Create(ctx context.Context, name, parentID string, autoApply bool) (Tag, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || len([]rune(name)) > 90 || strings.ContainsAny(name, "›>") || strings.ContainsFunc(name, unicode.IsControl) {
 		return Tag{}, errInvalidName
@@ -114,7 +114,7 @@ func (store *dynamoStore) Create(ctx context.Context, name, parentID string) (Ta
 		}
 	}
 
-	tag := Tag{ID: rand.Text(), Name: name, ParentID: parentID}
+	tag := Tag{ID: rand.Text(), Name: name, ParentID: parentID, AutoApply: autoApply}
 	if err := store.save(ctx, append(tags, tag), previous); err != nil {
 		return Tag{}, err
 	}

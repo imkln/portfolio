@@ -13,6 +13,7 @@ export default function TagCreator({ tags, initialName = '', assigning, onCreate
 }) {
   const [name, setName] = useState(initialName);
   const [parent, setParent] = useState<string>();
+  const [autoApply, setAutoApply] = useState(false);
   const [chooseParent, setChooseParent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -36,7 +37,7 @@ export default function TagCreator({ tags, initialName = '', assigning, onCreate
     setBusy(true);
     setError('');
     try {
-      onCreated(await createTag(value, parent));
+      onCreated(await createTag(value, parent, autoApply));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not create tag.');
     } finally {
@@ -61,6 +62,10 @@ export default function TagCreator({ tags, initialName = '', assigning, onCreate
               <TagList rows={rows} state={(id) => id === parent ? 'all' : 'none'} onSelect={pickParent} />
             </div>
           )}
+          <label className="tag-auto-apply">
+            <input type="checkbox" checked={autoApply} onChange={(event) => setAutoApply(event.target.checked)} />
+            Apply automatically
+          </label>
           {assigning && <p>The tag is saved now. Photo assignments are saved when you apply changes.</p>}
           {error && <p role="alert">{error}</p>}
           <div className="tag-actions">
