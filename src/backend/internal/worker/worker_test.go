@@ -6,9 +6,12 @@ import (
 	"errors"
 	"image"
 	"image/jpeg"
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/imkln/portfolio/src/backend/internal/api/tags"
 	"github.com/imkln/portfolio/src/backend/internal/shared/photos"
 )
 
@@ -99,6 +102,76 @@ func TestThumbnailKeepsPhotoOrientation(t *testing.T) {
 	}
 }
 
+func TestWorkerSavesAutomaticMatchesWithReadyPhoto(t *testing.T) {
+	worker, library := newTestWorker(t, jpegImage(t, 600, 400))
+	library.catalog = []tags.Tag{{ID: "lake", Name: "Lake", AutoApply: true}}
+	library.match = func(candidates []Candidate) ([]string, error) {
+		if !slices.Equal(candidates, []Candidate{{ID: "lake", Name: "Lake"}}) {
+			t.Fatalf("candidates = %v", candidates)
+		}
+		return []string{"unknown", "lake", "lake"}, nil
+	}
+
+	processUpload(t, worker)
+
+	if !library.ready || !slices.Equal(library.initialTags, []string{"lake"}) {
+		t.Fatalf("ready = %t, initial tags = %v", library.ready, library.initialTags)
+	}
+}
+
+func TestWorkerSkipsAnalysisForManualTags(t *testing.T) {
+	worker, library := newTestWorker(t, jpegImage(t, 600, 400))
+	library.catalog = []tags.Tag{{ID: "lake", Name: "Lake"}}
+
+	processUpload(t, worker)
+
+	if !library.ready || library.matcherCalls != 0 {
+		t.Fatalf("ready = %t, analysis calls = %d", library.ready, library.matcherCalls)
+	}
+}
+
+func TestWorkerSkipsDuplicateEligibleNames(t *testing.T) {
+	worker, library := newTestWorker(t, jpegImage(t, 600, 400))
+	library.catalog = []tags.Tag{
+		{ID: "lake", Name: "Lake", AutoApply: true},
+		{ID: "other-lake", ParentID: "somewhere", Name: "LAKE", AutoApply: true},
+	}
+
+	processUpload(t, worker)
+
+	if !library.ready || library.matcherCalls != 0 {
+		t.Fatalf("ready = %t, analysis calls = %d", library.ready, library.matcherCalls)
+	}
+}
+
+func TestWorkerSkipsDeliveryThatLosesReservation(t *testing.T) {
+	worker, library := newTestWorker(t, jpegImage(t, 600, 400))
+	library.catalog = []tags.Tag{{ID: "lake", Name: "Lake", AutoApply: true}}
+	library.reserved = true
+
+	processUpload(t, worker)
+
+	if library.ready || library.matcherCalls != 0 {
+		t.Fatalf("ready = %t, analysis calls = %d", library.ready, library.matcherCalls)
+	}
+}
+
+func TestWorkerDropsDeletedTagsWithoutAnalyzingAgain(t *testing.T) {
+	worker, library := newTestWorker(t, jpegImage(t, 600, 400))
+	library.catalog = []tags.Tag{
+		{ID: "lake", Name: "Lake", AutoApply: true},
+		{ID: "water", Name: "Water", AutoApply: true},
+	}
+	library.match = func([]Candidate) ([]string, error) { return []string{"lake", "water"}, nil }
+	library.beforeSave = func() { library.catalog = library.catalog[1:] }
+
+	processUpload(t, worker)
+
+	if !library.ready || library.matcherCalls != 1 || !slices.Equal(library.initialTags, []string{"water"}) {
+		t.Fatalf("ready = %t, analysis calls = %d, initial tags = %v", library.ready, library.matcherCalls, library.initialTags)
+	}
+}
+
 func jpegImage(t *testing.T, width, height int) []byte {
 	t.Helper()
 
@@ -135,7 +208,7 @@ func newTestWorker(t *testing.T, original []byte) (*Worker, *workerLibrary) {
 	t.Helper()
 
 	library := &workerLibrary{upload: original}
-	return New(library, library), library
+	return New(library, library, library, library), library
 }
 
 func processUpload(t *testing.T, worker *Worker) {
@@ -147,13 +220,19 @@ func processUpload(t *testing.T, worker *Worker) {
 }
 
 type workerLibrary struct {
-	upload    []byte
-	original  []byte
-	thumbnail []byte
-	ready     bool
-	deleted   bool
-	published int
-	saveError error
+	upload       []byte
+	original     []byte
+	thumbnail    []byte
+	ready        bool
+	deleted      bool
+	published    int
+	saveError    error
+	catalog      []tags.Tag
+	match        func([]Candidate) ([]string, error)
+	reserved     bool
+	matcherCalls int
+	initialTags  []string
+	beforeSave   func()
 }
 
 func (library *workerLibrary) PhotoState(_ context.Context, id string) (string, error) {
@@ -169,18 +248,54 @@ func (library *workerLibrary) PhotoState(_ context.Context, id string) (string, 
 	return "", nil
 }
 
-func (library *workerLibrary) SaveReady(_ context.Context, photo photos.Photo) (bool, error) {
+func (library *workerLibrary) List(context.Context) ([]tags.Tag, error) {
+	return library.catalog, nil
+}
+
+func (library *workerLibrary) CheckAssignment(_ context.Context, ids []string) (*types.ConditionCheck, error) {
+	for _, id := range ids {
+		if !slices.ContainsFunc(library.catalog, func(tag tags.Tag) bool { return tag.ID == id }) {
+			return nil, tags.ErrUnknownTag
+		}
+	}
+	return &types.ConditionCheck{}, nil
+}
+
+func (library *workerLibrary) Match(_ context.Context, _ []byte, candidates []Candidate) ([]string, error) {
+	library.matcherCalls++
+	return library.match(candidates)
+}
+
+func (library *workerLibrary) ReserveAnalysis(context.Context, string) (bool, error) {
+	if library.reserved {
+		return false, nil
+	}
+	library.reserved = true
+	return true, nil
+}
+
+func (library *workerLibrary) SaveReady(ctx context.Context, photo photos.Photo, reserved bool, catalog *types.ConditionCheck) (bool, error) {
+	if library.beforeSave != nil {
+		library.beforeSave()
+		library.beforeSave = nil
+	}
+	if catalog != nil {
+		if _, err := library.CheckAssignment(ctx, photo.TagIDs); err != nil {
+			return false, photos.ErrCatalogChanged
+		}
+	}
 	if photo.ID != "lake" || photo.Name != "lake.jpg" || !photo.UploadedAt.Equal(uploadedAt) {
 		return false, errors.New("wrong photo details")
 	}
 	if len(library.original) == 0 || len(library.thumbnail) == 0 {
 		return false, errors.New("the photo was marked ready before both files were saved")
 	}
-	if library.ready || library.deleted {
+	if library.ready || library.deleted || reserved != library.reserved {
 		return false, nil
 	}
 
 	library.ready = true
+	library.initialTags = photo.TagIDs
 	library.published++
 	return true, nil
 }

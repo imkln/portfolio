@@ -169,23 +169,69 @@ func (store *dynamoStore) MarkDeleted(ctx context.Context, id string) (bool, err
 	return err == nil, err
 }
 
-func (store *dynamoStore) SaveReady(ctx context.Context, photo Photo) (bool, error) {
-	uploadedAt := photo.UploadedAt.UTC()
+func (store *dynamoStore) ReserveAnalysis(ctx context.Context, id string) (bool, error) {
 	_, err := store.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-		TableName:           aws.String(store.table),
-		Key:                 photoKey(photo.ID),
-		ConditionExpression: aws.String("attribute_not_exists(id)"),
-		UpdateExpression:    aws.String("SET #state = :ready, #name = :name, uploadedAt = :time, uploadKey = :key"),
-		ExpressionAttributeNames: map[string]string{
-			"#state": "state",
-			"#name":  "name",
+		TableName:                aws.String(store.table),
+		Key:                      photoKey(id),
+		ConditionExpression:      aws.String("attribute_not_exists(#state) AND attribute_not_exists(analysisAttempted)"),
+		UpdateExpression:         aws.String("SET analysisAttempted = :attempted"),
+		ExpressionAttributeNames: map[string]string{"#state": "state"},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":attempted": &types.AttributeValueMemberBOOL{Value: true},
 		},
+	})
+	if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+var ErrCatalogChanged = errors.New("tag catalog changed before photo became ready")
+
+func (store *dynamoStore) SaveReady(ctx context.Context, photo Photo, reserved bool, catalog *types.ConditionCheck) (bool, error) {
+	uploadedAt := photo.UploadedAt.UTC()
+	update := &types.Update{
+		TableName:                aws.String(store.table),
+		Key:                      photoKey(photo.ID),
+		ConditionExpression:      aws.String("attribute_not_exists(id)"),
+		UpdateExpression:         aws.String("SET #state = :ready, #name = :name, uploadedAt = :time, uploadKey = :key"),
+		ExpressionAttributeNames: map[string]string{"#state": "state", "#name": "name"},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":ready": &types.AttributeValueMemberS{Value: readyState},
 			":name":  &types.AttributeValueMemberS{Value: photo.Name},
 			":time":  &types.AttributeValueMemberS{Value: uploadedAt.Format(time.RFC3339Nano)},
 			":key":   &types.AttributeValueMemberS{Value: uploadedAt.Format(uploadTimeLayout) + "#" + photo.ID},
 		},
+	}
+	if reserved {
+		update.ConditionExpression = aws.String("attribute_not_exists(#state) AND attribute_exists(analysisAttempted)")
+	}
+	if len(photo.TagIDs) != 0 {
+		update.UpdateExpression = aws.String(*update.UpdateExpression + ", tagIds = :tags")
+		update.ExpressionAttributeValues[":tags"] = &types.AttributeValueMemberSS{Value: photo.TagIDs}
+	}
+
+	if catalog != nil {
+		_, err := store.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+			TransactItems: []types.TransactWriteItem{{ConditionCheck: catalog}, {Update: update}},
+		})
+		if canceled, ok := errors.AsType[*types.TransactionCanceledException](err); ok {
+			reasons := canceled.CancellationReasons
+			if len(reasons) > 1 && aws.ToString(reasons[1].Code) == "ConditionalCheckFailed" {
+				return false, nil
+			}
+			if len(reasons) > 0 && aws.ToString(reasons[0].Code) == "ConditionalCheckFailed" {
+				return false, ErrCatalogChanged
+			}
+		}
+		return err == nil, err
+	}
+
+	_, err := store.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: update.TableName, Key: update.Key,
+		ConditionExpression: update.ConditionExpression, UpdateExpression: update.UpdateExpression,
+		ExpressionAttributeNames:  update.ExpressionAttributeNames,
+		ExpressionAttributeValues: update.ExpressionAttributeValues,
 	})
 	if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
 		return false, nil
