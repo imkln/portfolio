@@ -15,11 +15,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/awslabs/aws-lambda-go-api-proxy/httpadapter"
-	"github.com/imkln/portfolio/src/backend/internal/api/auth"
-	"github.com/imkln/portfolio/src/backend/internal/api/collections"
+
+	"github.com/imkln/portfolio/src/backend/internal/api/handler/auth"
 	"github.com/imkln/portfolio/src/backend/internal/api/server"
-	"github.com/imkln/portfolio/src/backend/internal/api/tags"
-	"github.com/imkln/portfolio/src/backend/internal/shared/photos"
+	"github.com/imkln/portfolio/src/backend/internal/infra/persistence/collections"
+	photodb "github.com/imkln/portfolio/src/backend/internal/infra/persistence/photos"
+	"github.com/imkln/portfolio/src/backend/internal/infra/persistence/tags"
+	"github.com/imkln/portfolio/src/backend/internal/infra/storage/photos"
 )
 
 func main() {
@@ -66,10 +68,10 @@ func main() {
 	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsConfig)
-	collectionStore := collections.NewDynamoStore(dynamoClient, collectionsTable)
-	photoStore := photos.NewDynamoStore(dynamoClient, photosTable)
-	tagStore := tags.NewDynamoStore(dynamoClient, collectionsTable)
-	photoFiles := photos.NewS3Store(s3.NewFromConfig(awsConfig), uploadBucket)
+	collectionStore := collectionsstore.NewDynamoStore(dynamoClient, collectionsTable)
+	photoStore := photodb.NewLibraryStore(dynamoClient, photosTable, collectionsTable)
+	tagStore := tagsstore.NewDynamoStore(dynamoClient, collectionsTable)
+	photoFiles := photofiles.NewS3Store(s3.NewFromConfig(awsConfig), uploadBucket)
 	handler, err := server.New(
 		ctx, appConfig, os.DirFS(*assets), collectionStore, photoStore, tagStore,
 		photoFiles, os.Getenv("PHOTO_UPLOAD_ORIGIN"),

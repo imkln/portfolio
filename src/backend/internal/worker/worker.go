@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/disintegration/imaging"
-	"github.com/imkln/portfolio/src/backend/internal/shared/photos"
+
+	"github.com/imkln/portfolio/src/backend/internal/domain/photos"
 )
 
 const (
