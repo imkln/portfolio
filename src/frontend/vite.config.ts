@@ -1,74 +1,19 @@
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vitest/config';
-import { createFakeCollectionsApi, isCollectionRequest } from './testutils/fakeCollectionsApi.ts';
-import { previewCollections, previewItemsByCollection } from './testutils/previewCollections.ts';
-import { previewPhotos } from './testutils/previewPhotos.ts';
-import { createFakePhotosApi, isPhotoRequest } from './testutils/fakePhotosApi.ts';
+import { defineConfig } from 'vite';
+import { previewServer } from './src/testing/previewServer.ts';
 
-export default defineConfig(({ mode }) => ({
-  plugins: [
-    react(),
-    {
-      name: 'photos-preview',
-      apply: 'serve',
-      configureServer(server) {
-        if (mode !== 'photos-preview' && mode !== 'collection-canvas-preview') return;
+export default defineConfig(({ mode }) => {
+  const mock = mode === 'e2e';
+  const api = mock ? 'http://127.0.0.1:5196' : 'http://localhost:8080';
 
-        const photos = createFakePhotosApi(previewPhotos.map((photo, index) => ({
-          ...photo,
-          tagIds: index % 3 === 0 ? ['paris', 'architecture'] : index % 3 === 1 ? ['nature'] : [],
-        })), [
-          { id: 'france', name: 'France' },
-          { id: 'paris', name: 'Paris', parentId: 'france' },
-          { id: 'architecture', name: 'Architecture' },
-          { id: 'nature', name: 'Nature' },
-        ]);
-        const collections = mode === 'collection-canvas-preview' ? previewCollections : [];
-        const handleCollections = createFakeCollectionsApi(collections, previewItemsByCollection);
-        server.middlewares.use(async (request, response, next) => {
-          const url = new URL(request.url ?? '/', 'http://localhost');
-          const collectionRequest = isCollectionRequest(url.pathname);
-          if (collectionRequest || isPhotoRequest(url.pathname)) {
-            try {
-              const headers = new Headers();
-              for (const [name, value] of Object.entries(request.headers)) {
-                if (typeof value === 'string') headers.set(name, value);
-              }
-
-              const chunks: Buffer[] = [];
-              for await (const chunk of request) chunks.push(chunk);
-              const body = chunks.length
-                ? new Uint8Array(Buffer.concat(chunks))
-                : undefined;
-              const input = new Request(url, { method: request.method, headers, body });
-              const result = collectionRequest
-                ? await handleCollections(input)
-                : await photos.handle(input);
-
-              response.writeHead(result.status, Object.fromEntries(result.headers));
-              response.end(Buffer.from(await result.arrayBuffer()));
-            } catch (error) {
-              next(error);
-            }
-            return;
-          }
-          if (request.method !== 'GET' || url.pathname !== '/api/session') return next();
-
-          response.setHeader('Content-Type', 'application/json');
-          response.end(JSON.stringify({ owner: true }));
-        });
+  return {
+    plugins: [react(), previewServer(mode)],
+    server: {
+      proxy: {
+        '/api': api,
+        '/auth': api,
+        ...(mock && { '/__fixtures': api, '/test-photo-uploads': api }),
       },
     },
-  ],
-  server: {
-    proxy: {
-      '/api': 'http://localhost:8080',
-      '/auth': 'http://localhost:8080',
-    },
-  },
-  test: {
-    environment: 'jsdom',
-    include: ['**/*.test.tsx'],
-    setupFiles: ['./test-setup.ts'],
-  },
-}));
+  };
+});

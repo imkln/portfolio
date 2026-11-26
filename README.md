@@ -6,15 +6,15 @@ My personal portfolio site for uploading and organizing photos with tags in a pr
 
 ### Moving photos
 
-![Moving a photo on the collection canvas](docs/images/moving-photos.gif)
+![Moving a photo on the collection canvas](docs/assets/moving-photos.gif)
 
 ### Resizing photos
 
-![Resizing a photo on the collection canvas](docs/images/resizing-photos.gif)
+![Resizing a photo on the collection canvas](docs/assets/resizing-photos.gif)
 
 ### Selecting photos
 
-![Filtering the photo picker by tags and choosing a photo](docs/images/selecting-photos.gif)
+![Filtering the photo picker by tags and choosing a photo](docs/assets/selecting-photos.gif)
 
 ## Architecture
 

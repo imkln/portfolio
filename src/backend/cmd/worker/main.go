@@ -2,9 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
 	"log/slog"
 	"os"
 
@@ -13,7 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/imkln/portfolio/src/backend/internal/shared/photos"
+
+	photodb "github.com/imkln/portfolio/src/backend/internal/infra/persistence/photos"
+	photofiles "github.com/imkln/portfolio/src/backend/internal/infra/storage/photos"
 	"github.com/imkln/portfolio/src/backend/internal/worker"
 )
 
@@ -31,32 +30,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	store := photos.NewDynamoStore(dynamodb.NewFromConfig(awsConfig), table)
-	files := photos.NewS3Store(s3.NewFromConfig(awsConfig), bucket)
+	store := photodb.NewDynamoStore(dynamodb.NewFromConfig(awsConfig), table)
+	files := photofiles.NewS3Store(s3.NewFromConfig(awsConfig), bucket)
 	processor := worker.New(store, files)
 
 	lambda.Start(func(ctx context.Context, event events.SQSEvent) error {
-		for _, message := range event.Records {
-			var upload events.S3Event
-			if err := json.Unmarshal([]byte(message.Body), &upload); err != nil {
-				return fmt.Errorf("read S3 upload event: %w", err)
-			}
-
-			for _, record := range upload.Records {
-				if record.S3.Bucket.Name != bucket {
-					continue
-				}
-
-				err := processor.Process(ctx, record.S3.Object.URLDecodedKey, record.EventTime)
-				if errors.Is(err, photos.ErrInvalidUpload) {
-					slog.WarnContext(ctx, "ignored invalid photo upload")
-					continue
-				}
-				if err != nil {
-					return err
-				}
-			}
-		}
-		return nil
+		return processor.ProcessUploadEvent(ctx, bucket, event)
 	})
 }

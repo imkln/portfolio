@@ -1,0 +1,107 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "jsx-a11y"],
+  "ignorePatterns": ["dist/**", "playwright-report/**", "test-results/**"],
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/consistent-type-imports": "error",
+    "jsx-a11y/alt-text": "error",
+    "jsx-a11y/aria-props": "error",
+    "jsx-a11y/aria-proptypes": "error",
+    "jsx-a11y/aria-role": "error",
+    "jsx-a11y/control-has-associated-label": "error",
+    "jsx-a11y/no-autofocus": "error",
+    "jsx-a11y/no-noninteractive-element-interactions": "off",
+    "jsx-a11y/click-events-have-key-events": "off",
+    "jsx-a11y/no-static-element-interactions": "error",
+    "jsx-a11y/prefer-tag-over-role": "error"
+  },
+  "overrides": [
+    {
+      "files": ["src/features/collections/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              "**/photos/**",
+              "**/session/**",
+              "**/app/**",
+              "**/photos",
+              "**/session",
+              "**/app"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/features/photos/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              "**/collections/**",
+              "**/session/**",
+              "**/app/**",
+              "**/collections",
+              "**/session",
+              "**/app"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/features/session/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              "**/collections/**",
+              "**/photos/**",
+              "**/app/**",
+              "**/collections",
+              "**/photos",
+              "**/app"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["e2e/**", "src/testing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              "**/features/**",
+              "**/app/**",
+              "**/components/**",
+              "**/features",
+              "**/app",
+              "**/components"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/components/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": ["**/features/**", "**/app/**", "**/features", "**/app"]
+          }
+        ]
+      }
+    }
+  ]
+}

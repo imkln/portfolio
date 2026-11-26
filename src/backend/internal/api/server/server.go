@@ -5,27 +5,27 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/imkln/portfolio/src/backend/internal/api/auth"
-	"github.com/imkln/portfolio/src/backend/internal/api/collections"
-	"github.com/imkln/portfolio/src/backend/internal/api/photos"
-	"github.com/imkln/portfolio/src/backend/internal/api/tags"
+	"github.com/imkln/portfolio/src/backend/internal/api/handler/auth"
+	"github.com/imkln/portfolio/src/backend/internal/api/router"
+	"github.com/imkln/portfolio/src/backend/internal/usecase"
 )
 
 func New(
 	ctx context.Context,
 	config auth.Config,
 	assets fs.FS,
-	collectionStore collections.Store,
-	photoStore photos.Store,
+	collectionStore usecase.CollectionStore,
+	photoStore usecase.PhotoStore,
 	tagStore interface {
-		tags.Store
-		photos.TagCatalog
+		usecase.TagStore
+		usecase.TagCatalog
 	},
-	photoFiles photos.FileStore,
+	photoFiles usecase.FileStore,
 	uploadOrigin string,
 ) (http.Handler, error) {
 	if collectionStore == nil {
@@ -66,7 +66,9 @@ func New(
 
 	page := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(index)
+		if _, err := w.Write(index); err != nil {
+			slog.ErrorContext(r.Context(), "write app page", "error", err)
+		}
 	}
 
 	mux := http.NewServeMux()
@@ -74,10 +76,10 @@ func New(
 	mux.HandleFunc("GET /photos", page)
 	mux.HandleFunc("GET /collections/{id}", page)
 	mux.Handle("GET /assets/", http.FileServerFS(assets))
-	sessions.Register(mux)
-	collections.Register(mux, collectionStore, sessions.IsOwner, photoFiles.OriginalURL)
-	photos.Register(mux, photoStore, photoFiles, tagStore, sessions.IsOwner)
-	tags.Register(mux, tagStore, sessions.IsOwner)
+	router.Auth(mux, sessions)
+	router.Collections(mux, collectionStore, sessions.IsOwner, photoFiles.OriginalURL)
+	router.Photos(mux, photoStore, photoFiles, tagStore, sessions.IsOwner)
+	router.Tags(mux, tagStore, sessions.IsOwner)
 
 	return securityHeaders(protection.Handler(mux), strings.TrimRight(config.AuthDomain, "/"), uploadOrigin), nil
 }
