@@ -13,6 +13,10 @@ type Props = {
   onMove?: (event: PointerEvent<HTMLButtonElement>) => void;
 };
 
+function focusEditor(element: HTMLInputElement | HTMLTextAreaElement | null) {
+  element?.focus();
+}
+
 export default function TextCanvasItem({
   value,
   label,
@@ -37,6 +41,7 @@ export default function TextCanvasItem({
   if (editing && selected && input !== null) {
     return multiline ? (
       <textarea
+        ref={focusEditor}
         aria-label={label}
         value={value}
         onFocus={(event) => event.currentTarget.select()}
@@ -45,6 +50,7 @@ export default function TextCanvasItem({
       />
     ) : (
       <input
+        ref={focusEditor}
         aria-label={label}
         type="text"
         value={input}
