@@ -1,0 +1,224 @@
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { ComponentType, MouseEvent } from 'react';
+import type { BoardItem, BoardItemChange, BoardLayout } from '../../types/CollectionTypes';
+import useCanvasGestures from '../../hooks/useCanvasGestures';
+import ActionIcon from '../../../../components/ui/action-bar/ActionIcon';
+import ActionBar from '../../../../components/ui/action-bar/ActionBar';
+import CanvasItem from './items/CanvasItem';
+import './Canvas.css';
+
+const smallScreen = '(max-width: 720px)';
+
+function subscribeToScreen(onChange: () => void) {
+  const query = window.matchMedia(smallScreen);
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+}
+
+type PickedPhoto = { id: string; original: string };
+
+type PhotoPickerProps = {
+  title: string;
+  onChoose: (photo: PickedPhoto) => void;
+  onClose: () => void;
+};
+
+type AddAction<Item> = {
+  label: string;
+  idPrefix: string;
+} & (
+  | { create: (layout: BoardLayout) => Item }
+  | { choosePhoto: (layout: BoardLayout, photo: PickedPhoto) => Item }
+);
+
+type Props<Item> = {
+  items: Item[];
+  canEdit: boolean;
+  label: string;
+  editLabel: string;
+  emptyMessage: string;
+  PhotoPicker: ComponentType<PhotoPickerProps>;
+  photoPickerTitle: string;
+  addActions: AddAction<Item>[];
+  onSave: (items: Item[]) => Promise<void>;
+  onOpen?: (event: MouseEvent<HTMLAnchorElement>) => void;
+};
+
+export default function Canvas<Item extends BoardItem>({
+  items: saved,
+  canEdit,
+  label,
+  editLabel,
+  emptyMessage,
+  PhotoPicker,
+  photoPickerTitle,
+  addActions,
+  onSave,
+  onOpen,
+}: Props<Item>) {
+  const compact = useSyncExternalStore(
+    subscribeToScreen,
+    () => window.matchMedia(smallScreen).matches,
+  );
+  const [draft, setDraft] = useState<Item[] | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [choosePhoto, setChoosePhoto] = useState<((photo: PickedPhoto) => void) | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const board = useRef<HTMLElement>(null);
+  const scrollToNew = useRef(false);
+  const editing = canEdit && !compact && draft !== null;
+  const items = compact
+    ? [...saved].sort((a, b) => a.y - b.y)
+    : editing
+      ? draft
+      : saved;
+  const { startDrag, dragTo, stopDrag, nudge } = useCanvasGestures({
+    board,
+    editable: editing && !saving && !choosePhoto,
+    selected: items.find((item) => item.id === selectedId),
+    update,
+  });
+
+  useLayoutEffect(() => {
+    if (!scrollToNew.current) return;
+
+    scrollToNew.current = false;
+    board.current?.lastElementChild?.scrollIntoView({ block: 'center' });
+  }, [draft]);
+
+  function update(id: string, change: BoardItemChange) {
+    setDraft(
+      (current) =>
+        current?.map((item) =>
+          item.id === id ? { ...item, ...change } : item,
+        ) ?? null,
+    );
+  }
+
+  function add(baseId: string, create: (layout: BoardLayout) => Item) {
+    const frame = board.current?.getBoundingClientRect();
+    if (!draft || !frame?.width) return;
+
+    let id = baseId;
+    let suffix = 2;
+    while (draft.some((item) => item.id === id)) {
+      id = `${baseId}-${suffix++}`;
+    }
+
+    const item = create({
+      id,
+      x: 0.08,
+      y: draft.length ? frame.height / frame.width + 0.05 : 0,
+      width: 0.38,
+    });
+
+    scrollToNew.current = true;
+    setSelectedId(id);
+    setDraft([...draft, item]);
+  }
+
+  function remove(id: string) {
+    setDraft((current) => current?.filter((item) => item.id !== id) ?? null);
+    setSelectedId(null);
+  }
+
+  async function save() {
+    if (!editing || saving) return;
+
+    setSaving(true);
+    setSaveError(false);
+    try {
+      await onSave(draft);
+      setDraft(null);
+      setSelectedId(null);
+    } catch {
+      setSaveError(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <main className="board-page" onKeyDown={nudge}>
+      <fieldset className="board-controls" disabled={saving} aria-busy={saving}>
+        {canEdit && !compact && (
+          <ActionBar>
+            {!editing && (
+              <button type="button" aria-label={editLabel} title={editLabel} onClick={() => setDraft(saved)}>
+                <ActionIcon name="edit" />
+              </button>
+            )}
+            {editing && addActions.map((action, index) => (
+              <button
+                key={action.idPrefix}
+                type="button"
+                aria-label={action.label}
+                title={action.label}
+                autoFocus={index === 0}
+                onClick={() => {
+                  if ('choosePhoto' in action) {
+                    setChoosePhoto(() => (photo: PickedPhoto) =>
+                      add(action.idPrefix, (layout) => action.choosePhoto(layout, photo)),
+                    );
+                  } else {
+                    add(action.idPrefix, action.create);
+                  }
+                }}
+              >
+                <ActionIcon name={'choosePhoto' in action ? 'photo' : action.idPrefix === 'caption' ? 'caption' : 'add'} />
+              </button>
+            ))}
+            {editing && (
+              <button type="button" aria-label={saving ? 'Saving…' : 'Save'} title="Save" onClick={save}>
+                <ActionIcon name="save" />
+              </button>
+            )}
+          </ActionBar>
+        )}
+
+        {editing && saveError && (
+          <p className="save-error" role="alert">
+            Could not save changes.
+          </p>
+        )}
+
+        <section
+          ref={board}
+          aria-label={label}
+          className={compact ? 'collection-board compact' : 'collection-board'}
+          onPointerMove={dragTo}
+          onLostPointerCapture={stopDrag}
+        >
+          {items.length === 0 && (
+            <p className="empty-board">{emptyMessage}</p>
+          )}
+          {items.map((item, index) => (
+            <CanvasItem
+              key={item.id}
+              collection={item}
+              rowIndex={index}
+              editing={editing}
+              selected={editing && item.id === selectedId}
+              onOpen={onOpen}
+              onSelect={() => setSelectedId(item.id)}
+              onChange={(change) => update(item.id, change)}
+              onChooseCover={() => setChoosePhoto(() => (photo: PickedPhoto) =>
+                update(item.id, { coverPhotoId: photo.id, coverPhotoUrl: photo.original }),
+              )}
+              onDelete={() => remove(item.id)}
+              onTransform={(event, action) => startDrag(event, action, item)}
+            />
+          ))}
+        </section>
+      </fieldset>
+      {choosePhoto && (
+        <PhotoPicker
+          title={photoPickerTitle}
+          onClose={() => setChoosePhoto(null)}
+          onChoose={choosePhoto}
+        />
+      )}
+    </main>
+  );
+}
