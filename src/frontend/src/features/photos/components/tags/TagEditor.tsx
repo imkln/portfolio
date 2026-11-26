@@ -82,7 +82,6 @@ export default function TagEditor({
         <h2>{title}</h2>
         <fieldset disabled={busy}>
           <input
-            autoFocus
             type="search"
             aria-label="Search tags"
             placeholder="Search tags"

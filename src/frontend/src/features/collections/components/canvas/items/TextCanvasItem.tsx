@@ -37,7 +37,6 @@ export default function TextCanvasItem({
   if (editing && selected && input !== null) {
     return multiline ? (
       <textarea
-        autoFocus
         aria-label={label}
         value={value}
         onFocus={(event) => event.currentTarget.select()}
@@ -46,7 +45,6 @@ export default function TextCanvasItem({
       />
     ) : (
       <input
-        autoFocus
         aria-label={label}
         type="text"
         value={input}

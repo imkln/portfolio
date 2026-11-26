@@ -68,12 +68,7 @@ export default function TagCreator({
         <fieldset disabled={busy}>
           <label className="tag-field">
             Name
-            <input
-              autoFocus
-              value={name}
-              maxLength={90}
-              onChange={(event) => setName(event.target.value)}
-            />
+            <input value={name} maxLength={90} onChange={(event) => setName(event.target.value)} />
           </label>
           <div className="tag-field">
             <span>Parent</span>

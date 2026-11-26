@@ -118,9 +118,9 @@ function textStyleClasses(item: TextItem) {
 
 function ItemControls({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="item-controls" role="group" aria-label={label}>
+    <fieldset className="item-controls" aria-label={label}>
       {children}
-    </div>
+    </fieldset>
   );
 }
 

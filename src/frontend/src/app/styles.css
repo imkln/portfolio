@@ -28,6 +28,10 @@ p {
   margin: 0;
 }
 
+output {
+  display: block;
+}
+
 .frame {
   padding: 0 var(--page-gutter) 56px;
 }

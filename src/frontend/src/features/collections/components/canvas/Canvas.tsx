@@ -148,13 +148,12 @@ export default function Canvas<Item extends BoardItem>({
               </button>
             )}
             {editing &&
-              addActions.map((action, index) => (
+              addActions.map((action) => (
                 <button
                   key={action.idPrefix}
                   type="button"
                   aria-label={action.label}
                   title={action.label}
-                  autoFocus={index === 0}
                   onClick={() => {
                     if ('choosePhoto' in action) {
                       setChoosePhoto(

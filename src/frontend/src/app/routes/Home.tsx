@@ -40,7 +40,7 @@ export default function Home({ canEdit, onOpen }: Props) {
       {isError ? (
         <p role="alert">Could not load collections.</p>
       ) : (
-        <p role="status">Loading collections…</p>
+        <output>Loading collections…</output>
       )}
     </main>
   );

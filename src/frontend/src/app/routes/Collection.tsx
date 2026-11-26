@@ -14,7 +14,7 @@ export default function Collection({ id, canEdit }: { id: string; canEdit: boole
     return (
       <main className="board-page">
         {isPending ? (
-          <p role="status">Loading collection…</p>
+          <output>Loading collection…</output>
         ) : (
           <p role="alert">
             {items === null ? 'Collection not found.' : 'Could not load collection.'}

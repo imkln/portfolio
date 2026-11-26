@@ -97,9 +97,12 @@ test('can select a collection with the keyboard', async ({ page }) => {
   await edit.focus();
 
   await page.keyboard.press('Enter');
-  await page.keyboard.press('Tab');
-  await page.keyboard.press('Tab');
-  await expect(first.getByRole('button', { name: 'Select Along Superior' })).toBeFocused();
+  const select = first.getByRole('button', { name: 'Select Along Superior' });
+  for (let step = 0; step < 8; step++) {
+    if (await select.evaluate((button) => button === document.activeElement)) break;
+    await page.keyboard.press('Tab');
+  }
+  await expect(select).toBeFocused();
   await page.keyboard.press('Enter');
 
   await expect(first.getByRole('button', { name: 'Delete collection' })).toBeVisible();

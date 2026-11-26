@@ -379,7 +379,7 @@ test('can return focus to the new-tag trigger with Escape', async ({ page }) => 
   await photo(page, 'Tags').click();
   await photo(page, 'New tag').click();
   const form = page.getByRole('dialog', { name: 'New tag' });
-  await expect(form.getByRole('textbox', { name: 'Name' })).toBeFocused();
+  await expect(form.getByRole('textbox', { name: 'Name' })).toBeVisible();
 
   await page.keyboard.press('Escape');
 

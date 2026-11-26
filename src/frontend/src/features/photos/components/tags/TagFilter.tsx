@@ -15,7 +15,7 @@ export default function TagFilter({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLFieldSetElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const id = useId();
 
@@ -31,8 +31,9 @@ export default function TagFilter({
   }, [open]);
 
   return (
-    <div
+    <fieldset
       className="tag-filter"
+      aria-label="Photo filters"
       ref={root}
       onKeyDown={(event) => {
         if (event.key !== 'Escape' || !open) return;
@@ -93,6 +94,6 @@ export default function TagFilter({
           <p>No tags yet.</p>
         )}
       </div>
-    </div>
+    </fieldset>
   );
 }

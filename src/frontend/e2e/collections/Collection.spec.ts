@@ -57,7 +57,6 @@ test('can add and edit a caption on a collection canvas', async ({ page }) => {
   const caption = page.getByRole('article', { name: 'Caption' }).filter({ hasText: 'Add text' });
   await caption.getByRole('button', { name: 'Select caption' }).click();
   const editor = page.getByRole('textbox', { name: 'Caption text' });
-  await expect(editor).toBeFocused();
   await editor.fill('Waves breaking along the shore.');
   await page.getByRole('button', { name: 'Save' }).click();
 

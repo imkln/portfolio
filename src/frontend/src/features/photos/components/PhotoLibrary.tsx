@@ -109,9 +109,7 @@ export default function PhotoLibrary() {
         )}
         {selecting && (
           <>
-            <p className="photo-selection-count" role="status">
-              {selected.size} selected
-            </p>
+            <output className="photo-selection-count">{selected.size} selected</output>
             {!tagError && (
               <button
                 type="button"
@@ -165,7 +163,7 @@ export default function PhotoLibrary() {
             {selected.size === 1 ? 'Delete photo?' : `Delete ${selected.size} photos?`}
           </h2>
           <div className="tag-actions">
-            <button type="button" autoFocus onClick={() => setConfirmingDelete(false)}>
+            <button type="button" onClick={() => setConfirmingDelete(false)}>
               Cancel
             </button>
             <button type="button" className="tag-danger" onClick={() => void deletePhotos()}>

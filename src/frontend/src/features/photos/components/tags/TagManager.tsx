@@ -61,7 +61,7 @@ export default function TagManager({
           )}
         </TagRows>
         <div className="tag-actions">
-          <button type="button" autoFocus onClick={onClose}>
+          <button type="button" onClick={onClose}>
             Done
           </button>
           <button type="button" className="tag-primary" onClick={() => setCreating(true)}>
@@ -94,7 +94,7 @@ export default function TagManager({
               <p>This removes the tag from photos that use it.</p>
             )}
             <div className="tag-actions">
-              <button type="button" autoFocus onClick={cancelDelete}>
+              <button type="button" onClick={cancelDelete}>
                 {error ? 'Done' : 'Cancel'}
               </button>
               {!error && (

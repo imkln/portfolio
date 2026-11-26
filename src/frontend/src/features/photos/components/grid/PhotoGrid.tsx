@@ -20,7 +20,7 @@ type Props = {
 export default function PhotoGrid({ library, selected, onActivate }: Props) {
   const { photos, loading, loadError, hasMore, nextPage } = library;
 
-  if (loading) return <p role="status">Loading photos…</p>;
+  if (loading) return <output>Loading photos…</output>;
 
   return (
     <>
