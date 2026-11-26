@@ -23,6 +23,10 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
+      - run: bun run format:check
+
+      - run: bun run lint
+
       - run: bunx playwright install --with-deps chromium
 
       - run: bun run test
@@ -51,7 +55,10 @@ jobs:
 
       - run: go test ./...
 
-      - run: go vet ./...
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.13.1
+          working-directory: src/backend
 
       - name: Build API binary
         run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -tags lambda.norpc -o ../../build/api ./cmd/api

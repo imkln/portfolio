@@ -31,12 +31,7 @@ type Options = {
   update: (id: string, change: BoardItemChange) => void;
 };
 
-export default function useCanvasGestures({
-  board,
-  editable,
-  selected,
-  update,
-}: Options) {
+export default function useCanvasGestures({ board, editable, selected, update }: Options) {
   const drag = useRef<Drag | null>(null);
 
   function textPosition(target: EventTarget | null, item: BoardItem): TextLayout | undefined {
@@ -46,18 +41,16 @@ export default function useCanvasGestures({
     const frame = board.current?.getBoundingClientRect();
     if (!text || !frame?.width) return;
 
-    return item.textLayout ?? {
-      x: (text.x - frame.x) / frame.width,
-      y: (text.y - frame.y) / frame.width,
-      width: text.width / frame.width,
-    };
+    return (
+      item.textLayout ?? {
+        x: (text.x - frame.x) / frame.width,
+        y: (text.y - frame.y) / frame.width,
+        width: text.width / frame.width,
+      }
+    );
   }
 
-  function startDrag(
-    event: PointerEvent<HTMLElement>,
-    action: Transform,
-    collection: BoardItem,
-  ) {
+  function startDrag(event: PointerEvent<HTMLElement>, action: Transform, collection: BoardItem) {
     const boardWidth = board.current?.getBoundingClientRect().width;
     if (!editable || event.button !== 0 || !boardWidth) return;
 
@@ -86,9 +79,10 @@ export default function useCanvasGestures({
     const dy = (event.clientY - clientY) / boardWidth;
 
     if (textLayout) {
-      const change = action === 'move'
-        ? move(textLayout, dx, dy)
-        : { width: Math.min(1 - textLayout.x, Math.max(minimumWidth, textLayout.width + dx)) };
+      const change =
+        action === 'move'
+          ? move(textLayout, dx, dy)
+          : { width: Math.min(1 - textLayout.x, Math.max(minimumWidth, textLayout.width + dx)) };
       update(start.id, { textLayout: { ...textLayout, ...change } });
       return;
     }
@@ -108,10 +102,7 @@ export default function useCanvasGestures({
 
     const vertical = dy * gesture.coverRatio;
     const delta = Math.abs(dx) >= Math.abs(vertical) ? dx : vertical;
-    const width = Math.max(
-      minimumWidth,
-      Math.min(1 - start.x, start.width + delta),
-    );
+    const width = Math.max(minimumWidth, Math.min(1 - start.x, start.width + delta));
 
     update(start.id, { width });
   }
@@ -125,7 +116,8 @@ export default function useCanvasGestures({
       !editable ||
       event.target instanceof HTMLInputElement ||
       event.target instanceof HTMLTextAreaElement
-    ) return;
+    )
+      return;
 
     const directions: Record<string, [number, number]> = {
       ArrowLeft: [-1, 0],
@@ -140,7 +132,11 @@ export default function useCanvasGestures({
     event.preventDefault();
     const [x, y] = direction;
     const textLayout = textPosition(event.target, selected);
-    const change = move(textLayout ?? selected, (x * nudgePixels) / width, (y * nudgePixels) / width);
+    const change = move(
+      textLayout ?? selected,
+      (x * nudgePixels) / width,
+      (y * nudgePixels) / width,
+    );
     update(selected.id, textLayout ? { textLayout: { ...textLayout, ...change } } : change);
   }
 

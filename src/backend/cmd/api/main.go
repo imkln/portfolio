@@ -18,10 +18,10 @@ import (
 
 	"github.com/imkln/portfolio/src/backend/internal/api/handler/auth"
 	"github.com/imkln/portfolio/src/backend/internal/api/server"
-	"github.com/imkln/portfolio/src/backend/internal/infra/persistence/collections"
+	collectionsstore "github.com/imkln/portfolio/src/backend/internal/infra/persistence/collections"
 	photodb "github.com/imkln/portfolio/src/backend/internal/infra/persistence/photos"
-	"github.com/imkln/portfolio/src/backend/internal/infra/persistence/tags"
-	"github.com/imkln/portfolio/src/backend/internal/infra/storage/photos"
+	tagsstore "github.com/imkln/portfolio/src/backend/internal/infra/persistence/tags"
+	photofiles "github.com/imkln/portfolio/src/backend/internal/infra/storage/photos"
 )
 
 func main() {

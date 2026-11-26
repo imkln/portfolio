@@ -68,11 +68,7 @@ export default function Canvas<Item extends BoardItem>({
   const board = useRef<HTMLElement>(null);
   const scrollToNew = useRef(false);
   const editing = canEdit && !compact && draft !== null;
-  const items = compact
-    ? [...saved].sort((a, b) => a.y - b.y)
-    : editing
-      ? draft
-      : saved;
+  const items = compact ? [...saved].sort((a, b) => a.y - b.y) : editing ? draft : saved;
   const { startDrag, dragTo, stopDrag, nudge } = useCanvasGestures({
     board,
     editable: editing && !saving && !choosePhoto,
@@ -89,10 +85,7 @@ export default function Canvas<Item extends BoardItem>({
 
   function update(id: string, change: BoardItemChange) {
     setDraft(
-      (current) =>
-        current?.map((item) =>
-          item.id === id ? { ...item, ...change } : item,
-        ) ?? null,
+      (current) => current?.map((item) => (item.id === id ? { ...item, ...change } : item)) ?? null,
     );
   }
 
@@ -145,32 +138,52 @@ export default function Canvas<Item extends BoardItem>({
         {canEdit && !compact && (
           <ActionBar>
             {!editing && (
-              <button type="button" aria-label={editLabel} title={editLabel} onClick={() => setDraft(saved)}>
+              <button
+                type="button"
+                aria-label={editLabel}
+                title={editLabel}
+                onClick={() => setDraft(saved)}
+              >
                 <ActionIcon name="edit" />
               </button>
             )}
-            {editing && addActions.map((action, index) => (
-              <button
-                key={action.idPrefix}
-                type="button"
-                aria-label={action.label}
-                title={action.label}
-                autoFocus={index === 0}
-                onClick={() => {
-                  if ('choosePhoto' in action) {
-                    setChoosePhoto(() => (photo: PickedPhoto) =>
-                      add(action.idPrefix, (layout) => action.choosePhoto(layout, photo)),
-                    );
-                  } else {
-                    add(action.idPrefix, action.create);
-                  }
-                }}
-              >
-                <ActionIcon name={'choosePhoto' in action ? 'photo' : action.idPrefix === 'caption' ? 'caption' : 'add'} />
-              </button>
-            ))}
+            {editing &&
+              addActions.map((action, index) => (
+                <button
+                  key={action.idPrefix}
+                  type="button"
+                  aria-label={action.label}
+                  title={action.label}
+                  autoFocus={index === 0}
+                  onClick={() => {
+                    if ('choosePhoto' in action) {
+                      setChoosePhoto(
+                        () => (photo: PickedPhoto) =>
+                          add(action.idPrefix, (layout) => action.choosePhoto(layout, photo)),
+                      );
+                    } else {
+                      add(action.idPrefix, action.create);
+                    }
+                  }}
+                >
+                  <ActionIcon
+                    name={
+                      'choosePhoto' in action
+                        ? 'photo'
+                        : action.idPrefix === 'caption'
+                          ? 'caption'
+                          : 'add'
+                    }
+                  />
+                </button>
+              ))}
             {editing && (
-              <button type="button" aria-label={saving ? 'Saving…' : 'Save'} title="Save" onClick={save}>
+              <button
+                type="button"
+                aria-label={saving ? 'Saving…' : 'Save'}
+                title="Save"
+                onClick={() => void save()}
+              >
                 <ActionIcon name="save" />
               </button>
             )}
@@ -190,9 +203,7 @@ export default function Canvas<Item extends BoardItem>({
           onPointerMove={dragTo}
           onLostPointerCapture={stopDrag}
         >
-          {items.length === 0 && (
-            <p className="empty-board">{emptyMessage}</p>
-          )}
+          {items.length === 0 && <p className="empty-board">{emptyMessage}</p>}
           {items.map((item, index) => (
             <CanvasItem
               key={item.id}
@@ -203,9 +214,12 @@ export default function Canvas<Item extends BoardItem>({
               onOpen={onOpen}
               onSelect={() => setSelectedId(item.id)}
               onChange={(change) => update(item.id, change)}
-              onChooseCover={() => setChoosePhoto(() => (photo: PickedPhoto) =>
-                update(item.id, { coverPhotoId: photo.id, coverPhotoUrl: photo.original }),
-              )}
+              onChooseCover={() =>
+                setChoosePhoto(
+                  () => (photo: PickedPhoto) =>
+                    update(item.id, { coverPhotoId: photo.id, coverPhotoUrl: photo.original }),
+                )
+              }
               onDelete={() => remove(item.id)}
               onTransform={(event, action) => startDrag(event, action, item)}
             />

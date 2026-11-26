@@ -13,9 +13,18 @@ const paths = {
 
 export default function ActionIcon({ name }: { name: keyof typeof paths }) {
   return (
-    <svg className="action-icon" width="16" height="16" viewBox="0 0 24 24"
-      fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
-      aria-hidden="true">
+    <svg
+      className="action-icon"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d={paths[name]} />
     </svg>
   );

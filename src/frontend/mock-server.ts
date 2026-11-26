@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { createServer } from 'node:http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createFakeCollectionsApi, isCollectionRequest } from './src/testing/fakeCollectionsApi.ts';
 import { createFakePhotosApi, isPhotoRequest } from './src/testing/fakePhotosApi.ts';
 import type { MockCollections, MockPhotos } from './src/testing/fakeApi.ts';
@@ -18,12 +18,19 @@ async function handle(request: Request): Promise<Response> {
   const { pathname } = new URL(request.url);
   if (pathname === '/__fixtures/health') return new Response('ready');
 
-  if (frontend && request.method === 'GET' && !/^\/(api|auth|__fixtures|test-photo-uploads)(\/|$)/.test(pathname)) {
+  if (
+    frontend &&
+    request.method === 'GET' &&
+    !/^\/(api|auth|__fixtures|test-photo-uploads)(\/|$)/.test(pathname)
+  ) {
     const location = new URL(request.url);
     return fetch(new URL(location.pathname + location.search, frontend));
   }
 
-  const cookie = request.headers.get('cookie')?.split('; ').find((value) => value.startsWith(cookieName + '='));
+  const cookie = request.headers
+    .get('cookie')
+    ?.split('; ')
+    .find((value) => value.startsWith(cookieName + '='));
   const currentId = cookie?.slice(cookieName.length + 1);
   const session = currentId ? sessions.get(currentId) : undefined;
 
@@ -71,7 +78,7 @@ async function handle(request: Request): Promise<Response> {
   return new Response(null, { status: 404 });
 }
 
-createServer(async (incoming, outgoing) => {
+async function serve(incoming: IncomingMessage, outgoing: ServerResponse) {
   try {
     const chunks: Buffer[] = [];
     for await (const chunk of incoming) chunks.push(chunk);
@@ -79,11 +86,13 @@ createServer(async (incoming, outgoing) => {
     for (const [name, value] of Object.entries(incoming.headers)) {
       if (typeof value === 'string') headers.set(name, value);
     }
-    const response = await handle(new Request(new URL(incoming.url ?? '/', 'http://127.0.0.1'), {
-      method: incoming.method,
-      headers,
-      body: chunks.length ? new Uint8Array(Buffer.concat(chunks)) : undefined,
-    }));
+    const response = await handle(
+      new Request(new URL(incoming.url ?? '/', 'http://127.0.0.1'), {
+        method: incoming.method,
+        headers,
+        body: chunks.length ? new Uint8Array(Buffer.concat(chunks)) : undefined,
+      }),
+    );
     outgoing.writeHead(response.status, Object.fromEntries(response.headers));
     outgoing.end(Buffer.from(await response.arrayBuffer()));
   } catch (error) {
@@ -91,4 +100,8 @@ createServer(async (incoming, outgoing) => {
     outgoing.writeHead(500);
     outgoing.end();
   }
+}
+
+createServer((incoming, outgoing) => {
+  void serve(incoming, outgoing);
 }).listen(5196, '127.0.0.1');

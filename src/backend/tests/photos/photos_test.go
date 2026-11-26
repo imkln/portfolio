@@ -25,7 +25,7 @@ import (
 	photostore "github.com/imkln/portfolio/src/backend/internal/domain/photos"
 	"github.com/imkln/portfolio/src/backend/internal/domain/tags"
 	photodb "github.com/imkln/portfolio/src/backend/internal/infra/persistence/photos"
-	"github.com/imkln/portfolio/src/backend/internal/infra/storage/photos"
+	photofiles "github.com/imkln/portfolio/src/backend/internal/infra/storage/photos"
 	"github.com/imkln/portfolio/src/backend/tests/utils"
 )
 

@@ -45,7 +45,8 @@ export const sampleCollections: Collection[] = [
   },
 ];
 
-export const captionText = 'The ore dock stretches out into Lake Superior, where the water meets the last light of the day.';
+export const captionText =
+  'The ore dock stretches out into Lake Superior, where the water meets the last light of the day.';
 
 export const sampleCollectionItems: CanvasItem[] = [
   {

@@ -3,11 +3,13 @@ type Layout = { id: string; x: number; y: number; width: number };
 type TextStyle = { largeText?: boolean; lightText?: boolean };
 type Cover = { coverPhotoId: string | null; coverPhotoUrl?: string };
 
-export type Collection = Layout & Cover & TextStyle & {
-  title: string;
-  metadata: string;
-  textLayout?: Omit<Layout, 'id'>;
-};
+export type Collection = Layout &
+  Cover &
+  TextStyle & {
+    title: string;
+    metadata: string;
+    textLayout?: Omit<Layout, 'id'>;
+  };
 
 export type CanvasItem =
   | (Layout & Cover & { kind: 'photo' })

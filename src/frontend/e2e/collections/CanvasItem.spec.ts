@@ -1,6 +1,10 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mockApi } from '../../src/testing/fakeApi';
-import { captionText, sampleCollectionItems, sampleCollections } from '../../src/testing/sampleCollections';
+import {
+  captionText,
+  sampleCollectionItems,
+  sampleCollections,
+} from '../../src/testing/sampleCollections';
 
 async function drag(page: Page, handle: Locator, dx: number, dy: number) {
   await handle.scrollIntoViewIfNeeded();
@@ -21,13 +25,17 @@ async function resizeCaption(page: Page, caption: Locator, dx: number, dy: numbe
 }
 
 test('should display a portrait cover at its original aspect ratio', async ({ page }) => {
-  const image = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300"><rect width="100%" height="100%" /></svg>';
+  const image =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300"><rect width="100%" height="100%" /></svg>';
   await mockApi(page, {
-    collections: [{ ...sampleCollections[0], coverPhotoUrl: `data:image/svg+xml,${encodeURIComponent(image)}` }],
+    collections: [
+      { ...sampleCollections[0], coverPhotoUrl: `data:image/svg+xml,${encodeURIComponent(image)}` },
+    ],
   });
   await page.goto('/');
 
-  const ratio = await page.getByRole('img', { name: 'Collection cover' })
+  const ratio = await page
+    .getByRole('img', { name: 'Collection cover' })
     .evaluate(async (image: HTMLImageElement) => {
       await image.decode();
       const { width, height } = image.getBoundingClientRect();
@@ -40,7 +48,10 @@ test('should display a portrait cover at its original aspect ratio', async ({ pa
 test.describe('collection canvas items', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1200, height: 850 });
-    await mockApi(page, { owner: true, itemsByCollection: { 'along-superior': sampleCollectionItems } });
+    await mockApi(page, {
+      owner: true,
+      itemsByCollection: { 'along-superior': sampleCollectionItems },
+    });
     await page.goto('/collections/along-superior');
   });
 

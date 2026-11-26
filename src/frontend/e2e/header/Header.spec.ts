@@ -6,10 +6,7 @@ test('should show sign-in when signed out', async ({ page }) => {
 
   await page.goto('/');
 
-  await expect(page.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
-    'href',
-    '/auth/login',
-  );
+  await expect(page.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/auth/login');
   await expect(page.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
 });
 

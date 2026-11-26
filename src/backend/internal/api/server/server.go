@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -65,7 +66,9 @@ func New(
 
 	page := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(index)
+		if _, err := w.Write(index); err != nil {
+			slog.ErrorContext(r.Context(), "write app page", "error", err)
+		}
 	}
 
 	mux := http.NewServeMux()

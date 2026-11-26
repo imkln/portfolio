@@ -7,6 +7,7 @@ const devServer = 'http://127.0.0.1:5195';
 
 export default defineConfig({
   testDir: './e2e',
+  forbidOnly: Boolean(process.env.CI),
   outputDir: 'node_modules/.cache/playwright',
   use: { baseURL: replacement ? mockServer : devServer, reducedMotion: 'reduce' },
   webServer: [
@@ -15,9 +16,13 @@ export default defineConfig({
       url: mockServer + '/__fixtures/health',
       env: replacement ? { PORTFOLIO_FRONTEND_URL: replacement } : {},
     },
-    ...(replacement ? [] : [{
-      command: 'bun run dev --mode e2e --host 127.0.0.1 --port 5195 --strictPort',
-      url: devServer,
-    }]),
+    ...(replacement
+      ? []
+      : [
+          {
+            command: 'bun run dev --mode e2e --host 127.0.0.1 --port 5195 --strictPort',
+            url: devServer,
+          },
+        ]),
   ],
 });

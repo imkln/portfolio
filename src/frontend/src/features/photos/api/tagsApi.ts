@@ -21,7 +21,11 @@ export async function deleteTag(id: string) {
   if (!response.ok) throw await tagError(response, 'Could not delete tag.');
 }
 
-export async function editPhotoTags(photoIds: string[], addTagIds: string[], removeTagIds: string[]) {
+export async function editPhotoTags(
+  photoIds: string[],
+  addTagIds: string[],
+  removeTagIds: string[],
+) {
   const response = await fetch('/api/photos', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },

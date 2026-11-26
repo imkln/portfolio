@@ -44,9 +44,7 @@ test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1200, height: 850 });
   await mockApi(page, { owner: true });
   await page.goto('/');
-  await expect(
-    page.getByRole('button', { name: 'Edit collections' }),
-  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit collections' })).toBeVisible();
 });
 
 test('can save a new text position without moving the cover', async ({ page }) => {
@@ -101,14 +99,10 @@ test('can select a collection with the keyboard', async ({ page }) => {
   await page.keyboard.press('Enter');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
-  await expect(
-    first.getByRole('button', { name: 'Select Along Superior' }),
-  ).toBeFocused();
+  await expect(first.getByRole('button', { name: 'Select Along Superior' })).toBeFocused();
   await page.keyboard.press('Enter');
 
-  await expect(
-    first.getByRole('button', { name: 'Delete collection' }),
-  ).toBeVisible();
+  await expect(first.getByRole('button', { name: 'Delete collection' })).toBeVisible();
 });
 
 test('can nudge the selected collection with arrow keys', async ({ page }) => {
@@ -124,15 +118,11 @@ test('can nudge the selected collection with arrow keys', async ({ page }) => {
   expect(moved.width).toBeCloseTo(start.width);
 });
 
-test('should leave arrow keys available when editing text', async ({
-  page,
-}) => {
+test('should leave arrow keys available when editing text', async ({ page }) => {
   const first = await selectFirst(page);
   const start = await bounds(first);
   const startFrame = await bounds(board(page));
-  await first
-    .getByRole('button', { name: 'Along Superior', exact: true })
-    .click();
+  await first.getByRole('button', { name: 'Along Superior', exact: true }).click();
   const title = first.getByRole('textbox', { name: 'Collection title' });
   await title.press('End');
 
@@ -157,12 +147,8 @@ test('should scroll to and select the new collection', async ({ page }) => {
   await expect(added.getByRole('img')).toHaveCount(0);
   await expect(board(page).getByRole('article').last()).toHaveAccessibleName('Untitled collection');
   await expect(added).toBeInViewport({ ratio: 0.9 });
-  await expect(
-    added.getByRole('button', { name: 'Delete collection' }),
-  ).toBeVisible();
-  await expect
-    .poll(() => page.evaluate(() => window.scrollY))
-    .toBeGreaterThan(0);
+  await expect(added.getByRole('button', { name: 'Delete collection' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
 });
 
 test('selecting another collection moves the editing controls', async ({ page }) => {
@@ -249,14 +235,10 @@ test('should save an edit and return to view mode', async ({ page }) => {
 
 test('should keep edits open when saving fails', async ({ page }) => {
   await page.route('**/api/collections', (route) =>
-    route.request().method() === 'PUT'
-      ? route.fulfill({ status: 500 })
-      : route.fallback(),
+    route.request().method() === 'PUT' ? route.fulfill({ status: 500 }) : route.fallback(),
   );
   const first = await selectFirst(page);
-  await first
-    .getByRole('button', { name: 'Along Superior', exact: true })
-    .click();
+  await first.getByRole('button', { name: 'Along Superior', exact: true }).click();
   const title = first.getByRole('textbox', { name: 'Collection title' });
   await title.fill('Unsaved title');
   await title.press('Enter');
@@ -269,25 +251,17 @@ test('should keep edits open when saving fails', async ({ page }) => {
       name: 'Delete collection',
     }),
   ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Save', exact: true }),
-  ).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
 });
 
 test('should hide editing controls on smaller screens', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
 
-  await expect(
-    collection(page, 'Along Superior').getByRole('link').first(),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Edit collections' }),
-  ).toHaveCount(0);
+  await expect(collection(page, 'Along Superior').getByRole('link').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit collections' })).toHaveCount(0);
 });
 
-test('should sort collections by y position on smaller screens', async ({
-  page,
-}) => {
+test('should sort collections by y position on smaller screens', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
 
   const titles = board(page).getByRole('heading', { level: 2 });

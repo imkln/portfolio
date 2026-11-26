@@ -14,19 +14,21 @@ async function openPhotos(page: Page) {
 }
 
 async function uploadPhotos(page: Page, ...names: string[]) {
-  const jpeg = await page.evaluate(() =>
-    document.createElement('canvas').toDataURL('image/jpeg').split(',')[1],
+  const jpeg = await page.evaluate(
+    () => document.createElement('canvas').toDataURL('image/jpeg').split(',')[1],
   );
   const [chooser] = await Promise.all([
     page.waitForEvent('filechooser'),
     page.getByRole('button', { name: 'Upload photos' }).click(),
   ]);
 
-  await chooser.setFiles(names.map((name) => ({
-    name,
-    mimeType: 'image/jpeg',
-    buffer: Buffer.from(jpeg, 'base64'),
-  })));
+  await chooser.setFiles(
+    names.map((name) => ({
+      name,
+      mimeType: 'image/jpeg',
+      buffer: Buffer.from(jpeg, 'base64'),
+    })),
+  );
 }
 
 test('can upload several photos at once', async ({ page }) => {
@@ -123,7 +125,9 @@ test('can open the original photo', async ({ page }) => {
   const viewer = page.getByRole('dialog');
   const original = viewer.getByRole('img', { name: 'Photo 1' });
   await expect(original).toBeVisible();
-  await expect.poll(() => original.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(1200);
+  await expect
+    .poll(() => original.evaluate((image: HTMLImageElement) => image.naturalWidth))
+    .toBe(1200);
   await expect(viewer.getByRole('button', { name: 'Close' })).toBeVisible();
 });
 
@@ -191,9 +195,7 @@ test('can select a range with Shift-click', async ({ page }) => {
 
 test('can retry a photo deletion after a partial failure', async ({ page }) => {
   await openPhotos(page);
-  await page.route('**/api/photos/sample-1', (route) =>
-    route.fulfill({ status: 500 }),
-  );
+  await page.route('**/api/photos/sample-1', (route) => route.fulfill({ status: 500 }));
   await page.getByRole('button', { name: 'Select', exact: true }).click();
   const failed = photo(page, 'Photo 1');
   const deleted = photo(page, 'Photo 2');
@@ -232,7 +234,11 @@ const france = { id: 'france', name: 'France' };
 
 async function openTagLibrary(page: Page, tagIds: string[][] = [[], []]) {
   await mockApi(page, { owner: true });
-  await mockPhotos(page, tagIds.map((ids, index) => ({ ...samplePhotos[index], tagIds: ids })), [france]);
+  await mockPhotos(
+    page,
+    tagIds.map((ids, index) => ({ ...samplePhotos[index], tagIds: ids })),
+    [france],
+  );
   await page.goto('/photos');
 }
 
@@ -285,9 +291,9 @@ test('can retry applying tags after a save fails', async ({ page }) => {
   const editor = await editTwoPhotos(page);
   const tag = editor.getByRole('button', { name: 'France' });
   await tag.click();
-  await page.route('**/api/photos', (route) => route.request().method() === 'PATCH'
-    ? route.fulfill({ status: 500 })
-    : route.fallback());
+  await page.route('**/api/photos', (route) =>
+    route.request().method() === 'PATCH' ? route.fulfill({ status: 500 }) : route.fallback(),
+  );
   const apply = editor.getByRole('button', { name: 'Apply changes' });
 
   await apply.click();
@@ -297,7 +303,10 @@ test('can retry applying tags after a save fails', async ({ page }) => {
 
   await expect(editor).toBeHidden();
   const saved = await editTwoPhotos(page);
-  await expect(saved.getByRole('button', { name: 'France' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(saved.getByRole('button', { name: 'France' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
 });
 
 test('creating a child tag does not assign it until changes are applied', async ({ page }) => {
@@ -320,7 +329,10 @@ test('creating a child tag does not assign it until changes are applied', async 
 
 test('explains why a tag with children cannot be deleted', async ({ page }) => {
   await mockApi(page, { owner: true });
-  await mockPhotos(page, samplePhotos.slice(0, 2), [france, { id: 'paris', name: 'Paris', parentId: france.id }]);
+  await mockPhotos(page, samplePhotos.slice(0, 2), [
+    france,
+    { id: 'paris', name: 'Paris', parentId: france.id },
+  ]);
   await page.goto('/photos');
   await photo(page, 'Tags').click();
   await photo(page, 'Delete France').click();
@@ -334,7 +346,9 @@ test('can finish uploading after changing a tag filter', async ({ page }) => {
   const france = { id: 'france', name: 'France' };
   await mockPhotos(page, [{ ...samplePhotos[0], tagIds: [france.id] }, samplePhotos[1]], [france]);
   let releaseUpload!: () => void;
-  const uploadReady = new Promise<void>((resolve) => { releaseUpload = resolve; });
+  const uploadReady = new Promise<void>((resolve) => {
+    releaseUpload = resolve;
+  });
   await page.route('**/test-photo-uploads/*', async (route) => {
     await uploadReady;
     await route.fallback();
@@ -379,7 +393,10 @@ test('can create a tag', async ({ page }) => {
   await photo(page, 'New tag').click();
   await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Nature');
   await photo(page, 'Create').click();
-  await page.getByRole('dialog', { name: 'Tags', exact: true }).getByRole('button', { name: 'Done' }).click();
+  await page
+    .getByRole('dialog', { name: 'Tags', exact: true })
+    .getByRole('button', { name: 'Done' })
+    .click();
 
   await photo(page, 'Filter by tags').click();
   await expect(photo(page, 'Nature')).toBeVisible();
@@ -393,7 +410,9 @@ test('can delete a tag', async ({ page }) => {
   await photo(page, 'Delete France').click();
   await photo(page, 'Delete tag').click();
 
-  await expect(page.getByRole('dialog').getByRole('button', { name: 'Delete France', exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole('dialog').getByRole('button', { name: 'Delete France', exact: true }),
+  ).toHaveCount(0);
   await photo(page, 'Done').click();
   await expect(photo(page, 'Clear all')).toHaveCount(0);
   await expect(photo(page, 'Photo 2')).toBeVisible();

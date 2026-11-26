@@ -7,7 +7,7 @@ import (
 
 	"github.com/imkln/portfolio/src/backend/internal/api/router"
 	"github.com/imkln/portfolio/src/backend/internal/domain/tags"
-	"github.com/imkln/portfolio/src/backend/internal/infra/persistence/tags"
+	tagsstore "github.com/imkln/portfolio/src/backend/internal/infra/persistence/tags"
 	"github.com/imkln/portfolio/src/backend/tests/utils"
 )
 

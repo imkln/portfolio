@@ -33,7 +33,11 @@ export default function PhotoGrid({ library, selected, onActivate }: Props) {
   );
 }
 
-function PhotoTiles({ photos, selected, onActivate }: Pick<Props, 'selected' | 'onActivate'> & {
+function PhotoTiles({
+  photos,
+  selected,
+  onActivate,
+}: Pick<Props, 'selected' | 'onActivate'> & {
   photos: Photo[];
 }) {
   const grid = useRef<HTMLElement>(null);
@@ -87,9 +91,11 @@ function PhotoTiles({ photos, selected, onActivate }: Pick<Props, 'selected' | '
                 if (!naturalWidth || !naturalHeight) return;
 
                 const ratio = naturalWidth / naturalHeight;
-                setRatios((current) => current[photo.thumbnail] === ratio
-                  ? current
-                  : { ...current, [photo.thumbnail]: ratio });
+                setRatios((current) =>
+                  current[photo.thumbnail] === ratio
+                    ? current
+                    : { ...current, [photo.thumbnail]: ratio },
+                );
               }}
             />
             {selected && (

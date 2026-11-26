@@ -12,7 +12,11 @@ function withImageUrls(photo: PhotoDetails): Photo {
   return { ...photo, original, thumbnail: `${original}/thumbnail` };
 }
 
-export async function listPhotos(signal: AbortSignal, pageToken?: string, filters: readonly string[] = []) {
+export async function listPhotos(
+  signal: AbortSignal,
+  pageToken?: string,
+  filters: readonly string[] = [],
+) {
   const params = new URLSearchParams();
   if (pageToken) params.set('pageToken', pageToken);
   for (const id of filters) params.append('tagId', id);
@@ -20,8 +24,7 @@ export async function listPhotos(signal: AbortSignal, pageToken?: string, filter
   const response = await fetch(url, { signal });
   if (!response.ok) throw new Error('Could not load photos');
 
-  const page: { photos: PhotoDetails[]; nextPageToken?: string } =
-    await response.json();
+  const page: { photos: PhotoDetails[]; nextPageToken?: string } = await response.json();
   return {
     photos: page.photos.map(withImageUrls),
     nextPageToken: page.nextPageToken,
@@ -39,8 +42,7 @@ export async function uploadPhoto(file: File, signal: AbortSignal) {
     throw new Error('Could not prepare photo upload');
   }
 
-  const form: { url: string; fields: Record<string, string> } =
-    await response.json();
+  const form: { url: string; fields: Record<string, string> } = await response.json();
   const body = new FormData();
   for (const [name, value] of Object.entries(form.fields)) {
     body.append(name, value);
@@ -57,7 +59,6 @@ export async function deletePhoto(id: string, signal: AbortSignal) {
     throw new Error('Could not delete photo');
   }
 }
-
 
 export function photoLibraryQuery(filters: readonly string[], revision: number) {
   return infiniteQueryOptions({

@@ -15,7 +15,7 @@ import (
 
 	"github.com/imkln/portfolio/src/backend/internal/api/router"
 	"github.com/imkln/portfolio/src/backend/internal/domain/collections"
-	"github.com/imkln/portfolio/src/backend/internal/infra/persistence/collections"
+	collectionsstore "github.com/imkln/portfolio/src/backend/internal/infra/persistence/collections"
 	"github.com/imkln/portfolio/src/backend/internal/usecase"
 	"github.com/imkln/portfolio/src/backend/tests/utils"
 )

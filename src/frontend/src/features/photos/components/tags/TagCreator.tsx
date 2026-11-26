@@ -4,7 +4,13 @@ import Dialog from '../../../../components/ui/dialog/Dialog';
 import './Tags.css';
 import TagList, { tagRows } from './TagList';
 
-export default function TagCreator({ tags, initialName = '', assigning, onCreated, onClose }: {
+export default function TagCreator({
+  tags,
+  initialName = '',
+  assigning,
+  onCreated,
+  onClose,
+}: {
   tags: Tag[];
   initialName?: string;
   assigning?: boolean;
@@ -45,26 +51,63 @@ export default function TagCreator({ tags, initialName = '', assigning, onCreate
   }
 
   return (
-    <Dialog className="tag-panel tag-dialog" aria-label="New tag" busy={busy} onEscape={() => chooseParent ? pickParent(parent) : onClose()} onDismiss={onClose}>
+    <Dialog
+      className="tag-panel tag-dialog"
+      aria-label="New tag"
+      busy={busy}
+      onEscape={() => (chooseParent ? pickParent(parent) : onClose())}
+      onDismiss={onClose}
+    >
       <h2>New tag</h2>
-      <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save();
+        }}
+      >
         <fieldset disabled={busy}>
-          <label className="tag-field">Name<input autoFocus value={name} maxLength={90} onChange={(event) => setName(event.target.value)} /></label>
+          <label className="tag-field">
+            Name
+            <input
+              autoFocus
+              value={name}
+              maxLength={90}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </label>
           <div className="tag-field">
             <span>Parent</span>
-            <button ref={parentButton} className="tag-parent" type="button" aria-label={`Parent: ${path}`} aria-expanded={chooseParent}
-              onClick={() => setChooseParent(!chooseParent)}>{path} {!chooseParent && <span aria-hidden="true">⌄</span>}</button>
+            <button
+              ref={parentButton}
+              className="tag-parent"
+              type="button"
+              aria-label={`Parent: ${path}`}
+              aria-expanded={chooseParent}
+              onClick={() => setChooseParent(!chooseParent)}
+            >
+              {path} {!chooseParent && <span aria-hidden="true">⌄</span>}
+            </button>
           </div>
           {chooseParent && (
             <div className="tag-parent-list">
-              <button type="button" onClick={() => pickParent()}>None{!parent && ' ✓'}</button>
-              <TagList rows={rows} state={(id) => id === parent ? 'all' : 'none'} onSelect={pickParent} />
+              <button type="button" onClick={() => pickParent()}>
+                None{!parent && ' ✓'}
+              </button>
+              <TagList
+                rows={rows}
+                state={(id) => (id === parent ? 'all' : 'none')}
+                onSelect={pickParent}
+              />
             </div>
           )}
-          {assigning && <p>The tag is saved now. Photo assignments are saved when you apply changes.</p>}
+          {assigning && (
+            <p>The tag is saved now. Photo assignments are saved when you apply changes.</p>
+          )}
           {error && <p role="alert">{error}</p>}
           <div className="tag-actions">
-            <button type="button" onClick={onClose}>Cancel</button>
+            <button type="button" onClick={onClose}>
+              Cancel
+            </button>
             <button className="tag-primary">Create</button>
           </div>
         </fieldset>

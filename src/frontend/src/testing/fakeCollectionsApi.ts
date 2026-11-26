@@ -33,9 +33,15 @@ export function createFakeCollectionsApi(
         collections = body.collections.map((collection) => {
           const { coverPhotoId } = collection;
           if (!coverPhotoId || originals.has(coverPhotoId)) {
-            return { ...collection, coverPhotoUrl: coverPhotoId ? originals.get(coverPhotoId) : undefined };
+            return {
+              ...collection,
+              coverPhotoUrl: coverPhotoId ? originals.get(coverPhotoId) : undefined,
+            };
           }
-          return { ...collection, coverPhotoUrl: `/api/photos/${encodeURIComponent(coverPhotoId)}` };
+          return {
+            ...collection,
+            coverPhotoUrl: `/api/photos/${encodeURIComponent(coverPhotoId)}`,
+          };
         });
         const retained = new Set(collections.map(({ id }) => id));
         for (const id of saved.keys()) {
@@ -53,21 +59,36 @@ export function createFakeCollectionsApi(
 
     if (request.method === 'PATCH') {
       const { items }: { items: CanvasItem[] } = await request.json();
-      saved.set(id, items.map((item) => item.kind === 'photo'
-        ? { ...item, coverPhotoUrl: originals.get(item.coverPhotoId ?? '') ?? `/api/photos/${item.coverPhotoId}` }
-        : item));
+      saved.set(
+        id,
+        items.map((item) =>
+          item.kind === 'photo'
+            ? {
+                ...item,
+                coverPhotoUrl:
+                  originals.get(item.coverPhotoId ?? '') ?? `/api/photos/${item.coverPhotoId}`,
+              }
+            : item,
+        ),
+      );
       return new Response(null, { status: 204 });
     }
 
-    const items = saved.get(id) ?? (collection.coverPhotoId ? [{
-      id: 'cover',
-      kind: 'photo',
-      coverPhotoId: collection.coverPhotoId,
-      coverPhotoUrl: collection.coverPhotoUrl,
-      x: 0,
-      y: 0,
-      width: 0.53,
-    }] : []);
+    const items =
+      saved.get(id) ??
+      (collection.coverPhotoId
+        ? [
+            {
+              id: 'cover',
+              kind: 'photo',
+              coverPhotoId: collection.coverPhotoId,
+              coverPhotoUrl: collection.coverPhotoUrl,
+              x: 0,
+              y: 0,
+              width: 0.53,
+            },
+          ]
+        : []);
     return Response.json({ ...collection, items });
   };
 }

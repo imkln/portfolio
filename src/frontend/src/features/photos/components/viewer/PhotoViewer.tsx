@@ -10,7 +10,11 @@ type Props = {
 
 export default function PhotoViewer({ name, original, onClose, onNavigate }: Props) {
   return (
-    <Dialog className="photo-viewer" aria-label="Photo viewer" fullscreen onDismiss={onClose}
+    <Dialog
+      className="photo-viewer"
+      aria-label="Photo viewer"
+      fullscreen
+      onDismiss={onClose}
       onKeyDown={(event) => {
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
 
@@ -18,11 +22,7 @@ export default function PhotoViewer({ name, original, onClose, onNavigate }: Pro
         onNavigate(event.key === 'ArrowLeft' ? -1 : 1);
       }}
     >
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-      >
+      <button type="button" aria-label="Close" onClick={onClose}>
         ×
       </button>
       <img src={original} alt={name} />

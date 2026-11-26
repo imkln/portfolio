@@ -1,11 +1,7 @@
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Photo } from '../types/Photo';
-import {
-  deletePhoto,
-  photoLibraryQuery,
-  uploadPhoto,
-} from '../api/photosApi';
+import { deletePhoto, photoLibraryQuery, uploadPhoto } from '../api/photosApi';
 
 const noFilters: readonly string[] = [];
 
@@ -92,13 +88,14 @@ export default function usePhotoLibrary(filters = noFilters, revision = 0) {
         failed.delete(id);
         client.setQueriesData<InfiniteData<{ photos: Photo[]; nextPageToken?: string }>>(
           { queryKey: ['photos'] },
-          (current) => current && {
-            ...current,
-            pages: current.pages.map((page) => ({
-              ...page,
-              photos: page.photos.filter((photo) => photo.id !== id),
-            })),
-          },
+          (current) =>
+            current && {
+              ...current,
+              pages: current.pages.map((page) => ({
+                ...page,
+                photos: page.photos.filter((photo) => photo.id !== id),
+              })),
+            },
         );
       } catch {
         // Leave photos selected when the API could not delete them.

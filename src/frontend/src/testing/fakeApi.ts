@@ -13,7 +13,11 @@ export type MockPhotos = { photos: Parameters<typeof createFakePhotosApi> };
 
 export async function mockApi(
   page: Page,
-  { owner = false, collections = sampleCollections, itemsByCollection = {} }: Partial<MockCollections> = {},
+  {
+    owner = false,
+    collections = sampleCollections,
+    itemsByCollection = {},
+  }: Partial<MockCollections> = {},
 ) {
   await seed(page, 'collections', { owner, collections, itemsByCollection });
 }

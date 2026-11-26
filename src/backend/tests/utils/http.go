@@ -51,7 +51,7 @@ func CheckAPIResponse(t *testing.T, request APIRequest, method, path, body strin
 	t.Helper()
 
 	response := request(method, path, body)
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	output, err := io.ReadAll(response.Body)
 	if err != nil {
 		t.Fatal(err)
@@ -60,4 +60,9 @@ func CheckAPIResponse(t *testing.T, request APIRequest, method, path, body strin
 		t.Fatalf("%s %s returned %d, want %d; body: %s", method, path, response.StatusCode, status, output)
 	}
 	return output
+}
+
+func ResponseCookies(response *httptest.ResponseRecorder) []*http.Cookie {
+	headers := http.Response{Header: response.Header()}
+	return headers.Cookies()
 }

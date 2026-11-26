@@ -1,5 +1,8 @@
 import Canvas from '../../features/collections/components/canvas/Canvas';
-import { useCollectionItems, useSaveCollectionItems } from '../../features/collections/api/collectionsApi';
+import {
+  useCollectionItems,
+  useSaveCollectionItems,
+} from '../../features/collections/api/collectionsApi';
 import PhotoPicker from '../../features/photos/components/picker/PhotoPicker';
 import type { CanvasItem } from '../../features/collections/types/CollectionTypes';
 
@@ -13,7 +16,9 @@ export default function Collection({ id, canEdit }: { id: string; canEdit: boole
         {isPending ? (
           <p role="status">Loading collection…</p>
         ) : (
-          <p role="alert">{items === null ? 'Collection not found.' : 'Could not load collection.'}</p>
+          <p role="alert">
+            {items === null ? 'Collection not found.' : 'Could not load collection.'}
+          </p>
         )}
       </main>
     );

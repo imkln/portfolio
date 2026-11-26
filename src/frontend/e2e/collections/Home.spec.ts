@@ -1,7 +1,7 @@
 import { expectPhoto } from '../../src/testing/expectPhoto';
 import { expect, test } from '@playwright/test';
 import { mockApi } from '../../src/testing/fakeApi';
-import { sampleCollections, sampleCoverPhoto } from '../../src/testing/sampleCollections';
+import { sampleCoverPhoto } from '../../src/testing/sampleCollections';
 
 test('can open a collection from its cover in view mode', async ({ page }) => {
   await mockApi(page);
@@ -42,14 +42,10 @@ test('should load collections when opening Home', async ({ page }) => {
   await page.getByRole('link', { name: 'Home' }).click();
 
   await expect(page.getByRole('article')).toHaveCount(1);
-  await expect(
-    page.getByRole('heading', { name: 'Saved on the server' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Saved on the server' })).toBeVisible();
 });
 
-test('should show an empty board when there are no collections', async ({
-  page,
-}) => {
+test('should show an empty board when there are no collections', async ({ page }) => {
   await mockApi(page, { collections: [] });
 
   await page.goto('/');
@@ -62,18 +58,12 @@ test('should show an empty board when there are no collections', async ({
 
 test('should show an error when collections cannot load', async ({ page }) => {
   await mockApi(page, { owner: true });
-  await page.route('**/api/collections', (route) =>
-    route.fulfill({ status: 500 }),
-  );
+  await page.route('**/api/collections', (route) => route.fulfill({ status: 500 }));
 
   await page.goto('/');
 
-  await expect(page.getByRole('alert')).toHaveText(
-    'Could not load collections.',
-  );
-  await expect(
-    page.getByRole('button', { name: 'Edit collections' }),
-  ).toHaveCount(0);
+  await expect(page.getByRole('alert')).toHaveText('Could not load collections.');
+  await expect(page.getByRole('button', { name: 'Edit collections' })).toHaveCount(0);
 });
 
 test('should hide editing controls from non-owners', async ({ page }) => {

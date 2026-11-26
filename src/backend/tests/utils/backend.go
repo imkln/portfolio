@@ -18,8 +18,8 @@ import (
 	"github.com/imkln/portfolio/src/backend/internal/api/handler/auth"
 	"github.com/imkln/portfolio/src/backend/internal/api/server"
 	"github.com/imkln/portfolio/src/backend/internal/domain/photos"
-	"github.com/imkln/portfolio/src/backend/internal/infra/persistence/collections"
-	"github.com/imkln/portfolio/src/backend/internal/infra/persistence/tags"
+	collectionsstore "github.com/imkln/portfolio/src/backend/internal/infra/persistence/collections"
+	tagsstore "github.com/imkln/portfolio/src/backend/internal/infra/persistence/tags"
 	"github.com/imkln/portfolio/src/backend/internal/worker"
 )
 
@@ -209,7 +209,7 @@ func (library *localLibrary) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "upload file is missing", http.StatusBadRequest)
 			return
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		var data []byte
 		data, err = io.ReadAll(file)

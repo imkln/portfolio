@@ -24,14 +24,21 @@ export function tagRows(tags: Tag[]) {
   return rows;
 }
 
-export function TagRows({ rows, children }: {
+export function TagRows({
+  rows,
+  children,
+}: {
   rows: ReturnType<typeof tagRows>;
   children: (row: ReturnType<typeof tagRows>[number]) => ReactNode;
 }) {
   return (
     <div className="tag-list">
       {rows.map((row) => (
-        <div className="tag-row" key={row.tag.id} style={{ paddingInlineStart: Math.min(row.depth, 8) * 12 }}>
+        <div
+          className="tag-row"
+          key={row.tag.id}
+          style={{ paddingInlineStart: Math.min(row.depth, 8) * 12 }}
+        >
           {children(row)}
         </div>
       ))}
@@ -39,7 +46,12 @@ export function TagRows({ rows, children }: {
   );
 }
 
-export default function TagList({ rows, state, onSelect, showPaths = false }: {
+export default function TagList({
+  rows,
+  state,
+  onSelect,
+  showPaths = false,
+}: {
   rows: ReturnType<typeof tagRows>;
   state: (id: string) => TagState;
   onSelect: (id: string) => void;
@@ -50,9 +62,18 @@ export default function TagList({ rows, state, onSelect, showPaths = false }: {
       {({ tag, path }) => {
         const value = state(tag.id);
         return (
-          <button type="button" aria-label={path} aria-pressed={value === 'some' ? 'mixed' : value === 'all'} onClick={() => onSelect(tag.id)}>
+          <button
+            type="button"
+            aria-label={path}
+            aria-pressed={value === 'some' ? 'mixed' : value === 'all'}
+            onClick={() => onSelect(tag.id)}
+          >
             {showPaths ? path : tag.name}
-            {value !== 'none' && <span className="tag-mark" aria-hidden="true">{value === 'all' ? '✓' : '−'}</span>}
+            {value !== 'none' && (
+              <span className="tag-mark" aria-hidden="true">
+                {value === 'all' ? '✓' : '−'}
+              </span>
+            )}
           </button>
         );
       }}

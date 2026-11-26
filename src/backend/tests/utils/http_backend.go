@@ -87,7 +87,7 @@ func (app Backend) SubmitUpload(t *testing.T, name string, jpegBytes []byte) {
 	if err != nil {
 		t.Fatalf("submit upload: %v", err)
 	}
-	response.Body.Close()
+	_ = response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		t.Fatalf("submit upload: %s", response.Status)
 	}
@@ -132,7 +132,7 @@ func (app Backend) RejectMismatchedState(t *testing.T) {
 	t.Helper()
 
 	login := app.Request(t, "GET", "/auth/login", "", 303)
-	location, err := login.Location()
+	location, err := login.response.Location()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func (app Backend) RejectMismatchedState(t *testing.T) {
 		t.Fatal("sign-in redirect is missing state, nonce, or proof key parameters")
 	}
 	var cookies []string
-	for _, cookie := range login.Cookies() {
+	for _, cookie := range login.response.Cookies() {
 		cookies = append(cookies, cookie.Name+"="+cookie.Value)
 	}
 	app.cookie = strings.Join(cookies, "; ")
@@ -163,7 +163,7 @@ func (app Backend) SignIn(t *testing.T) Backend {
 	if err != nil {
 		t.Fatal("sign-in did not complete through the configured test identity provider")
 	}
-	response.Body.Close()
+	_ = response.Body.Close()
 	if response.StatusCode != 200 || response.Request.URL.String() != app.base+"/" {
 		t.Fatal("sign-in did not return the owner to the app")
 	}
@@ -192,7 +192,7 @@ func (app Backend) Download(t *testing.T, path string) []byte {
 	t.Helper()
 
 	response := app.Request(t, "GET", path, "", 307)
-	location, err := response.Location()
+	location, err := response.response.Location()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,14 +204,19 @@ func (app Backend) Download(t *testing.T, path string) []byte {
 	if err != nil {
 		t.Fatal("could not download the photo")
 	}
+	defer func() { _ = result.Body.Close() }()
 	if result.StatusCode != 200 {
-		result.Body.Close()
 		t.Fatalf("download returned %s", result.Status)
 	}
 	return read(t, result)
 }
 
-func (app Backend) Request(t *testing.T, method, path, body string, status int) *http.Response {
+type APIResponse struct {
+	response *http.Response
+	body     []byte
+}
+
+func (app Backend) Request(t *testing.T, method, path, body string, status int) APIResponse {
 	t.Helper()
 
 	req, err := http.NewRequestWithContext(context.Background(), method, app.base+path, strings.NewReader(body))
@@ -229,16 +234,16 @@ func (app Backend) Request(t *testing.T, method, path, body string, status int) 
 	if err != nil {
 		t.Fatalf("%s %s: %v", method, path, err)
 	}
-	t.Cleanup(func() { response.Body.Close() })
+	defer func() { _ = response.Body.Close() }()
+	data := read(t, response)
 	if response.StatusCode != status {
-		t.Fatalf("%s %s returned %d, want %d; body: %s", method, path, response.StatusCode, status, read(t, response))
+		t.Fatalf("%s %s returned %d, want %d; body: %s", method, path, response.StatusCode, status, data)
 	}
-	return response
+	return APIResponse{response: response, body: data}
 }
 
 func read(t *testing.T, response *http.Response) []byte {
 	t.Helper()
-	defer response.Body.Close()
 
 	body, err := io.ReadAll(io.LimitReader(response.Body, 4<<20))
 	if err != nil {
@@ -247,15 +252,15 @@ func read(t *testing.T, response *http.Response) []byte {
 	return body
 }
 
-func Decode(t *testing.T, response *http.Response, output any) {
+func Decode(t *testing.T, response APIResponse, output any) {
 	t.Helper()
 
-	if body := read(t, response); json.Unmarshal(body, output) != nil {
-		t.Fatal("response is not valid JSON")
+	if err := json.Unmarshal(response.body, output); err != nil {
+		t.Fatalf("decode JSON response: %v", err)
 	}
 }
 
-func CheckJSON(t *testing.T, response *http.Response, expected string) {
+func CheckJSON(t *testing.T, response APIResponse, expected string) {
 	t.Helper()
 
 	var got any

@@ -67,7 +67,7 @@ func (fixture *Auth) Callback(t *testing.T) *httptest.ResponseRecorder {
 	fixture.nonce.Store(params.Get("nonce"))
 
 	callback := "/auth/callback?code=test-code&state=" + url.QueryEscape(params.Get("state"))
-	return Request(fixture.Mux, http.MethodGet, callback, "", login.Result().Cookies()...)
+	return Request(fixture.Mux, http.MethodGet, callback, "", ResponseCookies(login)...)
 }
 
 func (fixture *Auth) SignIn(t *testing.T) *http.Cookie {
@@ -75,7 +75,7 @@ func (fixture *Auth) SignIn(t *testing.T) *http.Cookie {
 
 	response := fixture.Callback(t)
 	CheckStatus(t, response, http.StatusSeeOther)
-	for _, cookie := range response.Result().Cookies() {
+	for _, cookie := range ResponseCookies(response) {
 		if cookie.MaxAge > 0 {
 			return cookie
 		}

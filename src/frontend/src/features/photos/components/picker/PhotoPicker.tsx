@@ -24,7 +24,12 @@ export default function PhotoPicker({ title, onChoose, onClose }: Props) {
     <Dialog className="photo-picker" aria-labelledby={titleId} onDismiss={onClose}>
       <header className="photo-picker-header">
         <h2 id={titleId}>{title}</h2>
-        <button type="button" className="photo-picker-close" aria-label="Close photo picker" onClick={onClose}>
+        <button
+          type="button"
+          className="photo-picker-close"
+          aria-label="Close photo picker"
+          onClick={onClose}
+        >
           <ActionIcon name="close" />
         </button>
       </header>

@@ -9,10 +9,10 @@ const palettes = [
 
 function landscape(index: number, width: number) {
   const [sky, water, hills, shore] = palettes[index % palettes.length];
-  const peak = 290 + (index * 47) % 210;
-  const scene = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="${width}" height="${width * 2 / 3}">
+  const peak = 290 + ((index * 47) % 210);
+  const scene = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="${width}" height="${(width * 2) / 3}">
     <rect width="600" height="400" fill="${sky}"/>
-    <circle cx="${190 + (index * 29) % 180}" cy="113" r="32" fill="#fff3db" opacity=".62"/>
+    <circle cx="${190 + ((index * 29) % 180)}" cy="113" r="32" fill="#fff3db" opacity=".62"/>
     <path d="M0 227L130 162 234 218 ${peak} 118 600 205V400H0Z" fill="${hills}"/>
     <path d="M0 242Q196 225 370 238T600 224V400H0Z" fill="${water}"/>
     <path d="M0 281H356M61 308H285M0 345H200M122 369H254" stroke="${sky}" stroke-width="3" opacity=".4"/>

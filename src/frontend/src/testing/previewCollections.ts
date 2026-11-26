@@ -40,8 +40,14 @@ export const previewCollections: Collection[] = [
 
 const collectionNotes = [
   { photo: 'shore-detail', text: 'A last stretch of rocky shoreline before the weather turns.' },
-  { photo: 'freight-detail', text: 'Along the sidings, paint and steel carry the marks of decades of work.' },
-  { photo: 'stairs-detail', text: 'Late light picks out the steps and handrails after the building has emptied.' },
+  {
+    photo: 'freight-detail',
+    text: 'Along the sidings, paint and steel carry the marks of decades of work.',
+  },
+  {
+    photo: 'stairs-detail',
+    text: 'Late light picks out the steps and handrails after the building has emptied.',
+  },
   { photo: 'water-detail', text: 'Pines and fog reflected in the lake before the wind came up.' },
 ];
 

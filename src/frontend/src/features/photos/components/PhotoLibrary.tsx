@@ -53,9 +53,7 @@ export default function PhotoLibrary() {
 
     if (shift && start >= 0) {
       const range = photos.slice(Math.min(start, end), Math.max(start, end) + 1);
-      setSelected(
-        (current) => new Set([...current, ...range.map(({ id }) => id)]),
-      );
+      setSelected((current) => new Set([...current, ...range.map(({ id }) => id)]));
       return;
     }
 
@@ -96,7 +94,9 @@ export default function PhotoLibrary() {
         {!selecting && (
           <button
             type="button"
-            aria-label="Upload photos" title="Upload photos" disabled={uploading}
+            aria-label="Upload photos"
+            title="Upload photos"
+            disabled={uploading}
             onClick={() => input.current?.click()}
           >
             <ActionIcon name="upload" />
@@ -113,11 +113,19 @@ export default function PhotoLibrary() {
               {selected.size} selected
             </p>
             {!tagError && (
-              <button type="button" aria-label="Edit tags" title="Edit tags" disabled={deleting || selected.size === 0 || selected.size > 99}
-                onClick={() => setTagMode('edit')}><ActionIcon name="tag" /></button>
+              <button
+                type="button"
+                aria-label="Edit tags"
+                title="Edit tags"
+                disabled={deleting || selected.size === 0 || selected.size > 99}
+                onClick={() => setTagMode('edit')}
+              >
+                <ActionIcon name="tag" />
+              </button>
             )}
             <button
-              aria-label="Delete" title="Delete photos"
+              aria-label="Delete"
+              title="Delete photos"
               type="button"
               disabled={deleting || selected.size === 0}
               onClick={() => setConfirmingDelete(true)}
@@ -148,11 +156,21 @@ export default function PhotoLibrary() {
       </ActionBar>
 
       {confirmingDelete && (
-        <Dialog className="tag-panel tag-dialog" aria-labelledby="delete-photos-title" onDismiss={() => setConfirmingDelete(false)}>
-          <h2 id="delete-photos-title">{selected.size === 1 ? 'Delete photo?' : `Delete ${selected.size} photos?`}</h2>
+        <Dialog
+          className="tag-panel tag-dialog"
+          aria-labelledby="delete-photos-title"
+          onDismiss={() => setConfirmingDelete(false)}
+        >
+          <h2 id="delete-photos-title">
+            {selected.size === 1 ? 'Delete photo?' : `Delete ${selected.size} photos?`}
+          </h2>
           <div className="tag-actions">
-            <button type="button" autoFocus onClick={() => setConfirmingDelete(false)}>Cancel</button>
-            <button type="button" className="tag-danger" onClick={deletePhotos}>Delete</button>
+            <button type="button" autoFocus onClick={() => setConfirmingDelete(false)}>
+              Cancel
+            </button>
+            <button type="button" className="tag-danger" onClick={() => void deletePhotos()}>
+              Delete
+            </button>
           </div>
         </Dialog>
       )}
@@ -174,8 +192,9 @@ export default function PhotoLibrary() {
       {deleteError && <p role="alert">Some photos could not be deleted.</p>}
 
       {tagError && <p role="alert">Could not load tags.</p>}
-      {!tagError && <TagFilter tags={tags} selected={filters} disabled={selecting}
-        onChange={setFilters} />}
+      {!tagError && (
+        <TagFilter tags={tags} selected={filters} disabled={selecting} onChange={setFilters} />
+      )}
 
       <PhotoGrid
         library={library}
@@ -188,24 +207,31 @@ export default function PhotoLibrary() {
       />
 
       {tagMode === 'manage' && (
-        <TagManager tags={tags}
+        <TagManager
+          tags={tags}
           onCreated={(tag) => setTags((current) => [...current, tag])}
           onDeleted={(id) => {
             setTags((current) => current.filter((tag) => tag.id !== id));
-            setFilters((current) => current.includes(id) ? current.filter((tag) => tag !== id) : current);
+            setFilters((current) =>
+              current.includes(id) ? current.filter((tag) => tag !== id) : current,
+            );
             setRevision((current) => current + 1);
           }}
-          onClose={() => setTagMode(undefined)} />
+          onClose={() => setTagMode(undefined)}
+        />
       )}
       {tagMode === 'edit' && (
-        <TagEditor tags={tags} photos={photos.filter((photo) => selected.has(photo.id))}
+        <TagEditor
+          tags={tags}
+          photos={photos.filter((photo) => selected.has(photo.id))}
           onCreated={(tag) => setTags((current) => [...current, tag])}
           onApplied={() => {
             clearSelection();
             setSelecting(false);
             setRevision((current) => current + 1);
           }}
-          onClose={() => setTagMode(undefined)} />
+          onClose={() => setTagMode(undefined)}
+        />
       )}
 
       {viewing && (

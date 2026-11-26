@@ -33,7 +33,7 @@ func TestNonOwnerDoesNotGetSession(t *testing.T) {
 	if response.Header().Get("Location") != "/" {
 		t.Fatalf("sign-in should return to Home, got %s", response.Header().Get("Location"))
 	}
-	for _, cookie := range response.Result().Cookies() {
+	for _, cookie := range utils.ResponseCookies(response) {
 		if cookie.MaxAge >= 0 {
 			t.Fatalf("non-owner received a cookie: %s", cookie.Name)
 		}
@@ -46,7 +46,7 @@ func TestSignInRejectsMismatchedState(t *testing.T) {
 	utils.CheckStatus(t, login, http.StatusSeeOther)
 
 	response := utils.Request(fixture.Mux, http.MethodGet,
-		"/auth/callback?code=test-code&state=wrong", "", login.Result().Cookies()...)
+		"/auth/callback?code=test-code&state=wrong", "", utils.ResponseCookies(login)...)
 
 	utils.CheckStatus(t, response, http.StatusBadRequest)
 }
@@ -58,7 +58,7 @@ func TestSigningOutClearsSessionCookie(t *testing.T) {
 	response := utils.Request(fixture.Mux, http.MethodPost, "/auth/logout", "", session)
 
 	utils.CheckStatus(t, response, http.StatusSeeOther)
-	if !slices.ContainsFunc(response.Result().Cookies(), func(cookie *http.Cookie) bool {
+	if !slices.ContainsFunc(utils.ResponseCookies(response), func(cookie *http.Cookie) bool {
 		return cookie.Name == session.Name && cookie.MaxAge < 0
 	}) {
 		t.Fatal("sign-out did not clear the session cookie")

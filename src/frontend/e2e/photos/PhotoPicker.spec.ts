@@ -5,9 +5,11 @@ import { samplePhotos } from '../../src/testing/samplePhotos';
 
 test('can choose a filtered photo', async ({ page }) => {
   await mockApi(page, { owner: true });
-  await mockPhotos(page, [samplePhotos[0], { ...samplePhotos[1], tagIds: ['nature'] }], [
-    { id: 'nature', name: 'Nature' },
-  ]);
+  await mockPhotos(
+    page,
+    [samplePhotos[0], { ...samplePhotos[1], tagIds: ['nature'] }],
+    [{ id: 'nature', name: 'Nature' }],
+  );
   await page.goto('/collections/along-superior');
   await page.getByRole('button', { name: 'Edit canvas' }).click();
   await page.getByRole('button', { name: 'Add photo' }).click();
@@ -19,5 +21,8 @@ test('can choose a filtered photo', async ({ page }) => {
   await picker.getByRole('button', { name: 'Photo 2', exact: true }).click();
 
   await expect(picker).toBeHidden();
-  await expectPhoto(page.getByRole('article', { name: 'Photo', exact: true }).last().getByRole('img'), samplePhotos[1].original);
+  await expectPhoto(
+    page.getByRole('article', { name: 'Photo', exact: true }).last().getByRole('img'),
+    samplePhotos[1].original,
+  );
 });

@@ -17,28 +17,35 @@ type CoverPhoto = {
   coverPhotoUrl?: string;
 };
 
-export type Collection = BoardLayout & CoverPhoto & TextStyle & {
-  kind?: never;
-  title: string;
-  metadata: string;
-  textLayout?: TextLayout;
-};
+export type Collection = BoardLayout &
+  CoverPhoto &
+  TextStyle & {
+    kind?: never;
+    title: string;
+    metadata: string;
+    textLayout?: TextLayout;
+  };
 
 type CanvasPhoto = BoardLayout & CoverPhoto & { kind: 'photo' };
-type CanvasCaption = BoardLayout & TextStyle & {
-  kind: 'caption';
-  text: string;
-  height: number;
-};
+type CanvasCaption = BoardLayout &
+  TextStyle & {
+    kind: 'caption';
+    text: string;
+    height: number;
+  };
 
 export type CanvasItem = CanvasPhoto | CanvasCaption;
 export type BoardItem = Collection | CanvasItem;
-export type BoardItemChange = Partial<Omit<BoardLayout, 'id'> & CoverPhoto & TextStyle & {
-  title: string;
-  metadata: string;
-  textLayout: TextLayout;
-  text: string;
-  height: number;
-}>;
+export type BoardItemChange = Partial<
+  Omit<BoardLayout, 'id'> &
+    CoverPhoto &
+    TextStyle & {
+      title: string;
+      metadata: string;
+      textLayout: TextLayout;
+      text: string;
+      height: number;
+    }
+>;
 
 export type CollectionDetail = Collection & { items: CanvasItem[] };

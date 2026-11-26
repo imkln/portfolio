@@ -11,11 +11,7 @@ export default function Header({ path, signedIn, onNavigate }: Props) {
   return (
     <header className="mast">
       <nav aria-label="Main">
-        <a
-          href="/"
-          onClick={onNavigate}
-          aria-current={path === '/' ? 'page' : undefined}
-        >
+        <a href="/" onClick={onNavigate} aria-current={path === '/' ? 'page' : undefined}>
           Home
         </a>
         {signedIn === true && (

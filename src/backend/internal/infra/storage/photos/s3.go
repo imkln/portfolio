@@ -108,7 +108,7 @@ func (store *s3Store) ReadUpload(ctx context.Context, key string) (string, []byt
 	if err != nil {
 		return "", nil, fmt.Errorf("read uploaded JPEG: %w", err)
 	}
-	defer result.Body.Close()
+	defer func() { _ = result.Body.Close() }()
 
 	name, err := base64.RawURLEncoding.DecodeString(result.Metadata["photo-name"])
 	if err != nil || len(name) == 0 || !utf8.Valid(name) {

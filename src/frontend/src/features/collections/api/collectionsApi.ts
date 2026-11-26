@@ -14,7 +14,7 @@ export async function fetchCollections(signal?: AbortSignal) {
 }
 
 export async function updateCollections(updated: Collection[]) {
-  const changes = updated.map(({ coverPhotoUrl, ...collection }) => collection);
+  const changes = updated.map(({ coverPhotoUrl: _coverPhotoUrl, ...collection }) => collection);
   const response = await fetch('/api/collections', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -37,7 +37,7 @@ export async function updateCollectionItems(id: string, updated: CanvasItem[]) {
   const items = updated.map((item) => {
     if (item.kind === 'caption') return item;
 
-    const { coverPhotoUrl, ...photo } = item;
+    const { coverPhotoUrl: _coverPhotoUrl, ...photo } = item;
     return photo;
   });
 
@@ -48,7 +48,6 @@ export async function updateCollectionItems(id: string, updated: CanvasItem[]) {
   });
   if (!response.ok) throw new Error('Could not save collection');
 }
-
 
 const collectionsKey = ['collections'] as const;
 const collectionItemsKey = (id: string) => ['collection-items', id] as const;
@@ -85,6 +84,8 @@ export function useSaveCollectionItems(id: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (items: CanvasItem[]) => updateCollectionItems(id, items),
-    onSuccess: (_, items) => { client.setQueryData(collectionItemsKey(id), items); },
+    onSuccess: (_, items) => {
+      client.setQueryData(collectionItemsKey(id), items);
+    },
   });
 }

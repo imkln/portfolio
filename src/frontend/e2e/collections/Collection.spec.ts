@@ -8,7 +8,10 @@ const collectionPath = '/collections/along-superior';
 
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1200, height: 850 });
-  await mockApi(page, { owner: true, itemsByCollection: { 'along-superior': sampleCollectionItems } });
+  await mockApi(page, {
+    owner: true,
+    itemsByCollection: { 'along-superior': sampleCollectionItems },
+  });
 });
 
 test('should show when a collection is missing', async ({ page }) => {
@@ -18,9 +21,7 @@ test('should show when a collection is missing', async ({ page }) => {
 });
 
 test('should show when a collection fails to load', async ({ page }) => {
-  await page.route('**/api/collections/along-superior', (route) =>
-    route.fulfill({ status: 500 }),
-  );
+  await page.route('**/api/collections/along-superior', (route) => route.fulfill({ status: 500 }));
 
   await page.goto(collectionPath);
 

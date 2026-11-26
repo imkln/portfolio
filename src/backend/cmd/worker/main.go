@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	photodb "github.com/imkln/portfolio/src/backend/internal/infra/persistence/photos"
-	"github.com/imkln/portfolio/src/backend/internal/infra/storage/photos"
+	photofiles "github.com/imkln/portfolio/src/backend/internal/infra/storage/photos"
 	"github.com/imkln/portfolio/src/backend/internal/worker"
 )
 

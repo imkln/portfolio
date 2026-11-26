@@ -7,11 +7,19 @@ const uploadPath = '/test-photo-uploads/';
 type Upload = { photo: Photo; file?: Blob };
 
 export function isPhotoRequest(path: string) {
-  return path === '/api/tags' || path.startsWith('/api/tags/') || path === libraryPath || path.startsWith(libraryPath + '/') ||
-    path.startsWith(uploadPath);
+  return (
+    path === '/api/tags' ||
+    path.startsWith('/api/tags/') ||
+    path === libraryPath ||
+    path.startsWith(libraryPath + '/') ||
+    path.startsWith(uploadPath)
+  );
 }
 
-export function createFakePhotosApi(initialPhotos: Photo[] = samplePhotos, initialTags: Tag[] = []) {
+export function createFakePhotosApi(
+  initialPhotos: Photo[] = samplePhotos,
+  initialTags: Tag[] = [],
+) {
   const photos = new Map(initialPhotos.map((photo) => [photo.id, photo]));
   const tags = new Map(initialTags.map((tag) => [tag.id, tag]));
   const uploads = new Map<string, Upload>();
@@ -35,7 +43,10 @@ export function createFakePhotosApi(initialPhotos: Photo[] = samplePhotos, initi
       const tag = tags.get(id);
       if (!tag) return new Response(null, { status: 404 });
       if ([...tags.values()].some((item) => item.parentId === id)) {
-        return Response.json({ error: `${tag.name} can’t be deleted because it has subtags.` }, { status: 409 });
+        return Response.json(
+          { error: `${tag.name} can’t be deleted because it has subtags.` },
+          { status: 409 },
+        );
       }
       tags.delete(id);
       return new Response(null, { status: 204 });
@@ -43,7 +54,12 @@ export function createFakePhotosApi(initialPhotos: Photo[] = samplePhotos, initi
 
     if (pathname === libraryPath) {
       if (request.method === 'PATCH') {
-        const { photoIds, addTagIds, removeTagIds }: { photoIds: string[]; addTagIds: string[]; removeTagIds: string[] } = await request.json();
+        const {
+          photoIds,
+          addTagIds,
+          removeTagIds,
+        }: { photoIds: string[]; addTagIds: string[]; removeTagIds: string[] } =
+          await request.json();
         if (photoIds.some((id) => !photos.has(id)) || addTagIds.some((id) => !tags.has(id))) {
           return new Response(null, { status: 404 });
         }
@@ -64,28 +80,36 @@ export function createFakePhotosApi(initialPhotos: Photo[] = samplePhotos, initi
           photo: { id, name, uploadedAt: new Date().toISOString(), original: '', thumbnail: '' },
         });
 
-        return Response.json(
-          { url: uploadPath + id, fields: { key: id } },
-          { status: 201 },
-        );
+        return Response.json({ url: uploadPath + id, fields: { key: id } }, { status: 201 });
       }
 
       const filters = url.searchParams.getAll('tagId');
-      const all = [...photos.values()].filter((photo) => filters.every((filter) => photo.tagIds?.some((id) => {
-        for (let tag = tags.get(id); tag; tag = tag.parentId ? tags.get(tag.parentId) : undefined) {
-          if (tag.id === filter) return true;
-        }
-        return false;
-      }))).sort(
-        (a, b) => Date.parse(b.uploadedAt) - Date.parse(a.uploadedAt),
-      );
+      const all = [...photos.values()]
+        .filter((photo) =>
+          filters.every((filter) =>
+            photo.tagIds?.some((id) => {
+              for (
+                let tag = tags.get(id);
+                tag;
+                tag = tag.parentId ? tags.get(tag.parentId) : undefined
+              ) {
+                if (tag.id === filter) return true;
+              }
+              return false;
+            }),
+          ),
+        )
+        .sort((a, b) => Date.parse(b.uploadedAt) - Date.parse(a.uploadedAt));
       const start = Number(url.searchParams.get('pageToken') ?? 0);
       const end = start + 24;
 
       return Response.json({
-        photos: all.slice(start, end).map((photo) => details({
-          ...photo, tagIds: photo.tagIds?.filter((id) => tags.has(id)),
-        })),
+        photos: all.slice(start, end).map((photo) =>
+          details({
+            ...photo,
+            tagIds: photo.tagIds?.filter((id) => tags.has(id)),
+          }),
+        ),
         nextPageToken: end < all.length ? String(end) : undefined,
       });
     }

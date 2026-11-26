@@ -1,6 +1,9 @@
 import { useState } from 'react';
 
-export default function PhotoCanvasItem({ photoId, photoUrl }: {
+export default function PhotoCanvasItem({
+  photoId,
+  photoUrl,
+}: {
   photoId: string | null;
   photoUrl?: string;
 }) {
@@ -19,8 +22,6 @@ export default function PhotoCanvasItem({ photoId, photoUrl }: {
   }
 
   return (
-    <span className="cover-empty">
-      {photoId ? 'Cover photo unavailable' : 'No cover photo'}
-    </span>
+    <span className="cover-empty">{photoId ? 'Cover photo unavailable' : 'No cover photo'}</span>
   );
 }

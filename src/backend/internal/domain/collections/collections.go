@@ -53,18 +53,18 @@ func (list List) Valid() bool {
 
 	ids := make(map[string]bool, len(list.Collections))
 	for _, collection := range list.Collections {
-		if !collectionID.MatchString(collection.ID) || ids[collection.ID] || !collection.Layout.Valid() || collection.Items != nil {
-			return false
-		}
-		if !collectionText.MatchString(collection.Title) || !collectionText.MatchString(collection.Metadata) {
-			return false
-		}
-		if text := collection.TextLayout; text != nil && !text.Valid() {
+		if ids[collection.ID] || collection.Items != nil || !collection.Valid() {
 			return false
 		}
 		ids[collection.ID] = true
 	}
 	return true
+}
+
+func (collection Collection) Valid() bool {
+	return collectionID.MatchString(collection.ID) && collection.Layout.Valid() &&
+		collectionText.MatchString(collection.Title) && collectionText.MatchString(collection.Metadata) &&
+		(collection.TextLayout == nil || collection.TextLayout.Valid())
 }
 
 func (layout Layout) Valid() bool {

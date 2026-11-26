@@ -14,7 +14,15 @@ type Props = {
 };
 
 export default function TextCanvasItem({
-  value, label, placeholder, multiline, editing, selected, onChange, onSelect, onMove,
+  value,
+  label,
+  placeholder,
+  multiline,
+  editing,
+  selected,
+  onChange,
+  onSelect,
+  onMove,
 }: Props) {
   const [input, setInput] = useState<string | null>(null);
   const press = useRef<{ x: number; y: number; dragged: boolean } | null>(null);
@@ -56,7 +64,9 @@ export default function TextCanvasItem({
 
   const content = multiline ? (
     <span className="canvas-caption-text">{value || (editing ? placeholder : '')}</span>
-  ) : value || placeholder;
+  ) : (
+    value || placeholder
+  );
 
   if (!editing) return content;
 
@@ -73,18 +83,24 @@ export default function TextCanvasItem({
         if (selected && !dragged) setInput(value);
         else onSelect();
       }}
-      onPointerDown={onMove && ((event) => {
-        if (!selected || event.button !== 0) return;
+      onPointerDown={
+        onMove &&
+        ((event) => {
+          if (!selected || event.button !== 0) return;
 
-        press.current = { x: event.clientX, y: event.clientY, dragged: false };
-        onMove(event);
-      })}
-      onPointerMove={onMove && ((event) => {
-        const start = press.current;
-        if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 3) {
-          start.dragged = true;
-        }
-      })}
+          press.current = { x: event.clientX, y: event.clientY, dragged: false };
+          onMove(event);
+        })
+      }
+      onPointerMove={
+        onMove &&
+        ((event) => {
+          const start = press.current;
+          if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 3) {
+            start.dragged = true;
+          }
+        })
+      }
     >
       {content}
     </button>

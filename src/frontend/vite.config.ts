@@ -7,10 +7,7 @@ export default defineConfig(({ mode }) => {
   const api = mock ? 'http://127.0.0.1:5196' : 'http://localhost:8080';
 
   return {
-    plugins: [
-      react(),
-      previewServer(mode),
-    ],
+    plugins: [react(), previewServer(mode)],
     server: {
       proxy: {
         '/api': api,
@@ -18,6 +15,5 @@ export default defineConfig(({ mode }) => {
         ...(mock && { '/__fixtures': api, '/test-photo-uploads': api }),
       },
     },
-
   };
 });

@@ -1,13 +1,22 @@
 import { useLayoutEffect, useRef, type ComponentPropsWithoutRef } from 'react';
 
-type Props = Pick<ComponentPropsWithoutRef<'dialog'>, 'aria-label' | 'aria-labelledby' | 'className' | 'children' | 'onKeyDown'> & {
+type Props = Pick<
+  ComponentPropsWithoutRef<'dialog'>,
+  'aria-label' | 'aria-labelledby' | 'className' | 'children' | 'onKeyDown'
+> & {
   onDismiss: () => void;
   onEscape?: () => void;
   busy?: boolean;
   fullscreen?: boolean;
 };
 
-export default function Dialog({ onDismiss, onEscape = onDismiss, busy, fullscreen, ...props }: Props) {
+export default function Dialog({
+  onDismiss,
+  onEscape = onDismiss,
+  busy,
+  fullscreen,
+  ...props
+}: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
 
   useLayoutEffect(() => {
@@ -29,7 +38,13 @@ export default function Dialog({ onDismiss, onEscape = onDismiss, busy, fullscre
         if (busy || event.target !== element || event.detail === 0) return;
 
         const { left, right, top, bottom } = element.getBoundingClientRect();
-        if (fullscreen || event.clientX < left || event.clientX >= right || event.clientY < top || event.clientY >= bottom) {
+        if (
+          fullscreen ||
+          event.clientX < left ||
+          event.clientX >= right ||
+          event.clientY < top ||
+          event.clientY >= bottom
+        ) {
           onDismiss();
         }
       }}

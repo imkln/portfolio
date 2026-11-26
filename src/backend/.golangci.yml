@@ -1,0 +1,32 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - depguard
+    - nolintlint
+  settings:
+    depguard:
+      rules:
+        aws-infrastructure:
+          files:
+            - "$all"
+            - "!**/internal/infra/**"
+            - "!**/cmd/**"
+            - "!**/tests/**"
+          deny:
+            - pkg: github.com/aws/aws-sdk-go-v2
+              desc: AWS SDK clients belong in infrastructure, startup wiring, or test fixtures.
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/imkln/portfolio/src/backend

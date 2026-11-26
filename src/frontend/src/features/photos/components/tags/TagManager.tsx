@@ -6,7 +6,12 @@ import Dialog from '../../../../components/ui/dialog/Dialog';
 import './Tags.css';
 import { TagRows, tagRows } from './TagList';
 
-export default function TagManager({ tags, onCreated, onDeleted, onClose }: {
+export default function TagManager({
+  tags,
+  onCreated,
+  onDeleted,
+  onClose,
+}: {
   tags: Tag[];
   onCreated: (tag: Tag) => void;
   onDeleted: (id: string) => void;
@@ -43,28 +48,60 @@ export default function TagManager({ tags, onCreated, onDeleted, onClose }: {
           {({ tag, path }) => (
             <>
               <span>{tag.name}</span>
-              <button type="button" className="tag-delete-icon" aria-label={`Delete ${path}`} title={`Delete ${path}`}
-                onClick={() => setDeleting(tag)}><ActionIcon name="trash" /></button>
+              <button
+                type="button"
+                className="tag-delete-icon"
+                aria-label={`Delete ${path}`}
+                title={`Delete ${path}`}
+                onClick={() => setDeleting(tag)}
+              >
+                <ActionIcon name="trash" />
+              </button>
             </>
           )}
         </TagRows>
         <div className="tag-actions">
-          <button type="button" autoFocus onClick={onClose}>Done</button>
-          <button type="button" className="tag-primary" onClick={() => setCreating(true)}>New tag</button>
+          <button type="button" autoFocus onClick={onClose}>
+            Done
+          </button>
+          <button type="button" className="tag-primary" onClick={() => setCreating(true)}>
+            New tag
+          </button>
         </div>
       </Dialog>
-      {creating && <TagCreator tags={tags} onClose={() => setCreating(false)} onCreated={(tag) => {
-        setCreating(false);
-        onCreated(tag);
-      }} />}
+      {creating && (
+        <TagCreator
+          tags={tags}
+          onClose={() => setCreating(false)}
+          onCreated={(tag) => {
+            setCreating(false);
+            onCreated(tag);
+          }}
+        />
+      )}
       {deleting && (
-        <Dialog className="tag-panel tag-dialog" aria-label={`Delete ${deleting.name}?`} busy={busy} onDismiss={cancelDelete}>
+        <Dialog
+          className="tag-panel tag-dialog"
+          aria-label={`Delete ${deleting.name}?`}
+          busy={busy}
+          onDismiss={cancelDelete}
+        >
           <h2>Delete {deleting.name}?</h2>
           <fieldset disabled={busy}>
-            {error ? <p role="alert">{error}</p> : <p>This removes the tag from photos that use it.</p>}
+            {error ? (
+              <p role="alert">{error}</p>
+            ) : (
+              <p>This removes the tag from photos that use it.</p>
+            )}
             <div className="tag-actions">
-              <button type="button" autoFocus onClick={cancelDelete}>{error ? 'Done' : 'Cancel'}</button>
-              {!error && <button type="button" className="tag-danger" onClick={() => void remove(deleting)}>Delete tag</button>}
+              <button type="button" autoFocus onClick={cancelDelete}>
+                {error ? 'Done' : 'Cancel'}
+              </button>
+              {!error && (
+                <button type="button" className="tag-danger" onClick={() => void remove(deleting)}>
+                  Delete tag
+                </button>
+              )}
             </div>
           </fieldset>
         </Dialog>

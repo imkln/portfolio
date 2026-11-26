@@ -8,7 +8,11 @@ const nature = { id: 'nature', name: 'Nature' };
 
 async function openPhotos(page: Page, assignments: string[][]) {
   await mockApi(page, { owner: true });
-  await mockPhotos(page, assignments.map((tagIds, index) => ({ ...samplePhotos[index], tagIds })), [france, paris, nature]);
+  await mockPhotos(
+    page,
+    assignments.map((tagIds, index) => ({ ...samplePhotos[index], tagIds })),
+    [france, paris, nature],
+  );
   await page.goto('/photos');
   await page.getByRole('button', { name: 'Filter by tags', exact: true }).click();
 }
@@ -52,14 +56,22 @@ test('can clear filters', async ({ page }) => {
 
 test('can load more filtered photos after an empty page', async ({ page }) => {
   await openPhotos(page, [['paris'], ['nature']]);
-  await page.route((url) => url.pathname === '/api/photos' && (url.searchParams.has('tagId') || url.searchParams.has('pageToken')), (route) => {
-    const params = new URL(route.request().url()).searchParams;
-    if (params.getAll('tagId').join(',') !== 'france') return route.fallback();
+  await page.route(
+    (url) =>
+      url.pathname === '/api/photos' &&
+      (url.searchParams.has('tagId') || url.searchParams.has('pageToken')),
+    (route) => {
+      const params = new URL(route.request().url()).searchParams;
+      if (params.getAll('tagId').join(',') !== 'france') return route.fallback();
 
-    return route.fulfill({ json: params.get('pageToken') === 'next'
-      ? { photos: [samplePhotos[2]] }
-      : { photos: [], nextPageToken: 'next' } });
-  });
+      return route.fulfill({
+        json:
+          params.get('pageToken') === 'next'
+            ? { photos: [samplePhotos[2]] }
+            : { photos: [], nextPageToken: 'next' },
+      });
+    },
+  );
 
   await button(page, 'France').click();
 
